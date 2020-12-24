@@ -2,11 +2,13 @@ package com.gzy.gmi.app.GMIViewer;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
 
 /** Canvas to paint image on */
-public class GMICanvas extends JPanel {
+public class GMICanvas extends JPanel implements ComponentListener {
 
     /** width of image slice */
     private int imgWidth;
@@ -49,13 +51,54 @@ public class GMICanvas extends JPanel {
         int[] rawImageData = imgData[currentLayer];
         raster.setPixels(0, 0, imgWidth, imgHeight, rawImageData);
         image.setData(raster);
+        repaint();
     }
+
+    /** Visual area of image */
+    int visX, visY, visWidth, visHeight;
 
     @Override
     public void paint(Graphics g) {
         super.paint(g);
-        if(image != null) {
-            g.drawImage(image, 0, 0, getWidth(), getHeight(), this);
+//        if(image != null) {
+//            g.drawImage(image, visX, visY, visWidth, visHeight, this);
+//        }
+        g.drawImage(image, 0, 0, getWidth(), getHeight(), this);
+    }
+
+    @Override
+    public void componentResized(ComponentEvent e) {
+        if(imgData != null) {
+            int w = getWidth();
+            int h = getHeight();
+            if (imgWidth * h < imgHeight * w) {
+                // imgWidth / imgHeight < w / h, [||]
+                visWidth = h * imgWidth / imgHeight;
+                visHeight = h;
+                visX = (w - visWidth + 1) / 2;
+                visY = 0;
+            } else {
+                // imgWidth / imgHeight < w / h, [二]
+                visWidth = w;
+                visHeight = w * imgHeight / imgWidth;
+                visX = 0;
+                visY = (h - visHeight + 1) / 2;
+            }
         }
+    }
+
+    @Override
+    public void componentMoved(ComponentEvent e) {
+        // skip
+    }
+
+    @Override
+    public void componentShown(ComponentEvent e) {
+        // skip
+    }
+
+    @Override
+    public void componentHidden(ComponentEvent e) {
+        // skip
     }
 }

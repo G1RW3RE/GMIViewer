@@ -59,20 +59,41 @@ public class GMIFrame extends JFrame implements ComponentListener {
         dp.setBackground(Color.yellow);
         dp.setLayout(null);
 
+
         canvas00 = new GMICanvas();
-        canvas00.setBackground(new Color(0x616161));
+//        canvas00.setBackground(new Color(0x616161));
         canvas01 = new GMICanvas();
-        canvas01.setBackground(new Color(0x898989));
+//        canvas01.setBackground(new Color(0x898989));
         canvas10 = new GMICanvas();
-        canvas10.setBackground(new Color(0x8B8B8B));
+//        canvas10.setBackground(new Color(0x8B8B8B));
         canvas11 = new GMICanvas();
-        canvas11.setBackground(new Color(0xC6C6C6));
-        dp.add(canvas00);
+//        canvas11.setBackground(new Color(0xC6C6C6));
+        canvas00.setBackground(Color.BLACK);
+        canvas01.setBackground(Color.BLACK);
+        canvas10.setBackground(Color.BLACK);
+        canvas11.setBackground(Color.BLACK);
+        addComponentListener(canvas00);
+        addComponentListener(canvas01);
+        addComponentListener(canvas10);
+        addComponentListener(canvas11);
+        test00 = new JPanel();
+        test00.setBackground(Color.BLACK);
+        test00.setBorder(BorderFactory.createTitledBorder("Top"));
+        test00.setLayout(new BorderLayout());
+        test00.add(canvas00, "Center");
+        dp.add(test00);
+//        dp.add(canvas00);
         dp.add(canvas01);
         dp.add(canvas10);
         dp.add(canvas11);
-
         dpOuter.add(dp);
+
+    }
+    JPanel test00;
+
+    @Override
+    public void update(Graphics g) {
+        paint(g);
     }
 
     @Override
@@ -89,7 +110,8 @@ public class GMIFrame extends JFrame implements ComponentListener {
 
         int canvasWidth = dp.getWidth() / 2;
         int canvasHeight = dp.getHeight() / 2;
-        canvas00.setBounds(0, 0, canvasWidth, canvasHeight);
+//        canvas00.setBounds(0, 0, canvasWidth, canvasHeight);
+        test00.setBounds(0, 0, canvasWidth, canvasHeight);
         canvas01.setBounds(canvasWidth, 0, canvasWidth, canvasHeight);
         canvas10.setBounds(0, canvasHeight, canvasWidth, canvasHeight);
         canvas11.setBounds(canvasWidth, canvasHeight, canvasWidth, canvasHeight);
