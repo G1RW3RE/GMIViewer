@@ -5,23 +5,21 @@ import com.gzy.gmi.util.MHDInfo;
 import com.gzy.gmi.util.RawData;
 
 import javax.swing.*;
+import javax.swing.border.TitledBorder;
 import java.awt.*;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
 import java.io.File;
 import java.io.IOException;
 
 /**
  * main frame of GMIViewer
  * */
-public class GMIFrame extends JFrame implements ComponentListener {
+public class GMIFrame extends JFrame {
 
     public GMIFrame() {
         super("GMIViewer医学图像查看器");
         setSize(800, 600);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        addComponentListener(this);
         setMinimumSize(new Dimension(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT));
 
         initComponents();
@@ -30,8 +28,9 @@ public class GMIFrame extends JFrame implements ComponentListener {
         setVisible(true);
     }
 
-    private JPanel tp;
-    private JPanel dpOuter, dp;
+    private JPanel toolPane;
+    private JPanel displayPaneOuter, displayPane;
+    private JPanel canvasWrapper00, canvasWrapper01, canvasWrapper10, canvasWrapper11;
     private GMICanvas canvas00, canvas01, canvas10, canvas11;
 
     private static final int WINDOW_MIN_WIDTH = 550;
@@ -41,95 +40,78 @@ public class GMIFrame extends JFrame implements ComponentListener {
 
     /** initialize components to be used in frame */
     private void initComponents() {
-        // layout: | tools |     images      |
+        //           tools      image x 4
+        // layout: |       |        +        |
+        SpringLayout layout = new SpringLayout();
+        setLayout(layout);
 
         // Tool pane TODO
-        tp = new JPanel();
-        tp.setBackground(Color.ORANGE);
-        tp.setMinimumSize(new Dimension(TOOL_PANE_WIDTH, WINDOW_MIN_HEIGHT));
-        add(tp);
+        toolPane = new JPanel();
+        toolPane.setBackground(Color.ORANGE);
+        toolPane.setMinimumSize(new Dimension(TOOL_PANE_WIDTH, WINDOW_MIN_HEIGHT));
+        SpringLayout.Constraints tpConstraints = layout.getConstraints(toolPane);
+        tpConstraints.setWidth(Spring.constant(TOOL_PANE_WIDTH));
+        add(toolPane, tpConstraints);
 
-        // Display pane TODO
-        dpOuter = new JPanel();
-        dpOuter.setMinimumSize(new Dimension(DISPLAY_PANE_MIN_WIDTH, WINDOW_MIN_HEIGHT));
-        add(dpOuter);
+        // Display pane outer
+        displayPaneOuter = new JPanel();
+        displayPaneOuter.setMinimumSize(new Dimension(DISPLAY_PANE_MIN_WIDTH, WINDOW_MIN_HEIGHT));
+        displayPaneOuter.setLayout(new BorderLayout());
+        displayPaneOuter.setBackground(Color.CYAN);
+        add(displayPaneOuter);
 
-        // Display pane inner TODO
-        dp = new JPanel();
-        dp.setBackground(Color.yellow);
-        dp.setLayout(null);
+        // layout
+        layout.putConstraint(SpringLayout.WEST, toolPane, 0, SpringLayout.WEST, getContentPane());
+        layout.putConstraint(SpringLayout.SOUTH, toolPane, 0, SpringLayout.SOUTH, getContentPane());
+        layout.putConstraint(SpringLayout.NORTH, toolPane, 0, SpringLayout.NORTH, getContentPane());
+        layout.putConstraint(SpringLayout.WEST, displayPaneOuter, TOOL_PANE_WIDTH, SpringLayout.WEST, toolPane);
+        layout.putConstraint(SpringLayout.EAST, displayPaneOuter, 0, SpringLayout.EAST, getContentPane());
+        layout.putConstraint(SpringLayout.NORTH, displayPaneOuter, 0, SpringLayout.NORTH, getContentPane());
+        layout.putConstraint(SpringLayout.SOUTH, displayPaneOuter, 0, SpringLayout.SOUTH, getContentPane());
 
+        // Display pane inner
+        displayPane = new JPanel();
+        displayPane.setBackground(Color.yellow);
+        displayPane.setLayout(new GridLayout(2, 2));
+        displayPaneOuter.add(displayPane);
 
         canvas00 = new GMICanvas();
-//        canvas00.setBackground(new Color(0x616161));
         canvas01 = new GMICanvas();
-//        canvas01.setBackground(new Color(0x898989));
         canvas10 = new GMICanvas();
-//        canvas10.setBackground(new Color(0x8B8B8B));
         canvas11 = new GMICanvas();
-//        canvas11.setBackground(new Color(0xC6C6C6));
         canvas00.setBackground(Color.BLACK);
         canvas01.setBackground(Color.BLACK);
         canvas10.setBackground(Color.BLACK);
         canvas11.setBackground(Color.BLACK);
-        addComponentListener(canvas00);
-        addComponentListener(canvas01);
-        addComponentListener(canvas10);
-        addComponentListener(canvas11);
-        test00 = new JPanel();
-        test00.setBackground(Color.BLACK);
-        test00.setBorder(BorderFactory.createTitledBorder("Top"));
-        test00.setLayout(new BorderLayout());
-        test00.add(canvas00, "Center");
-        dp.add(test00);
-//        dp.add(canvas00);
-        dp.add(canvas01);
-        dp.add(canvas10);
-        dp.add(canvas11);
-        dpOuter.add(dp);
 
-    }
-    JPanel test00;
+        canvasWrapper00 = new JPanel();
+        canvasWrapper00.setBackground(Color.BLACK);
+        canvasWrapper00.setBorder(BorderFactory.createTitledBorder(null, "TOP", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.WHITE));
+        canvasWrapper00.setLayout(new BorderLayout());
+        canvasWrapper00.add(canvas00);
+        displayPane.add(canvasWrapper00);
 
-    @Override
-    public void update(Graphics g) {
-        paint(g);
-    }
+        canvasWrapper01 = new JPanel();
+        canvasWrapper01.setBackground(Color.BLACK);
+        canvasWrapper01.setBorder(BorderFactory.createTitledBorder(null, "LEFT", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.WHITE));
+        canvasWrapper01.setLayout(new BorderLayout());
+        canvasWrapper01.add(canvas01);
+        displayPane.add(canvasWrapper01);
 
-    @Override
-    public void componentResized(ComponentEvent e) {
-        // fixed width
-        tp.setLocation(0 ,0);
-        tp.setSize(TOOL_PANE_WIDTH, getHeight());
-        // fill the space left
-        dpOuter.setLocation(TOOL_PANE_WIDTH, 0);
-        dpOuter.setSize(getWidth() - TOOL_PANE_WIDTH, getHeight());
-        // fill dpOuter
-        dp.setLocation(0, 0);
-        dp.setSize(dpOuter.getWidth(), dpOuter.getHeight());
+        canvasWrapper10 = new JPanel();
+        canvasWrapper10.setBackground(Color.BLACK);
+        canvasWrapper10.setBorder(BorderFactory.createTitledBorder(null, "FRONT", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.WHITE));
+        canvasWrapper10.setLayout(new BorderLayout());
+        canvasWrapper10.add(canvas10);
+        displayPane.add(canvasWrapper10);
 
-        int canvasWidth = dp.getWidth() / 2;
-        int canvasHeight = dp.getHeight() / 2;
-//        canvas00.setBounds(0, 0, canvasWidth, canvasHeight);
-        test00.setBounds(0, 0, canvasWidth, canvasHeight);
-        canvas01.setBounds(canvasWidth, 0, canvasWidth, canvasHeight);
-        canvas10.setBounds(0, canvasHeight, canvasWidth, canvasHeight);
-        canvas11.setBounds(canvasWidth, canvasHeight, canvasWidth, canvasHeight);
-    }
+        canvasWrapper11 = new JPanel();
+        canvasWrapper11.setBackground(Color.BLACK);
+        canvasWrapper11.setBorder(BorderFactory.createTitledBorder(null, "???", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.WHITE));
+        canvasWrapper11.setLayout(new BorderLayout());
+        canvasWrapper11.add(canvas11);
+        displayPane.add(canvasWrapper11);
 
-    @Override
-    public void componentMoved(ComponentEvent e) {
-        // skip
-    }
-
-    @Override
-    public void componentShown(ComponentEvent e) {
-        // skip
-    }
-
-    @Override
-    public void componentHidden(ComponentEvent e) {
-        // skip
     }
 
     /** mhd Information data */
@@ -142,14 +124,16 @@ public class GMIFrame extends JFrame implements ComponentListener {
         canvas00.loadImageData(rawData.topSlice, mhdInfo.x, mhdInfo.y);
         canvas01.loadImageData(rawData.leftSlice, mhdInfo.y, mhdInfo.z);
         canvas10.loadImageData(rawData.frontSlice, mhdInfo.x, mhdInfo.z);
-        dp.repaint();
+        displayPane.repaint();
     }
 
+    // TDOO DEBUGGING
+    private final static String DEBUG_MHD_PATH = "D:\\迅雷下载\\1.3.6.1.4.1.14519.5.2.1.6279.6001.100684836163890911914061745866.mhd";
     // TODO DEBUGGING
     public void loadData() {
         Thread thread = new Thread(() -> {
             try {
-                mhdInfo = GMILoader.loadMHDFile(new File("E:\\GLORIA_WORKSPACE\\task\\task1015_ps\\HSW09_0017_01.mhd"));
+                mhdInfo = GMILoader.loadMHDFile(new File(DEBUG_MHD_PATH));
                 mhdInfo.debugOutput();
                 rawData = GMILoader.loadRawFromMHD(mhdInfo);
                 onDataLoaded();
