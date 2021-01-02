@@ -63,7 +63,7 @@ public class TestFrame extends JFrame {
     private void onLoaded() {
 
         //noinspection SuspiciousNameCombination
-        img = getImageFromArray(rawData.leftSlice[190], mhdInfo.y, mhdInfo.z);
+        img = getImageFromArray(rawData.rightSlice[190], mhdInfo.y, mhdInfo.z);
         repaint();
     }
 
