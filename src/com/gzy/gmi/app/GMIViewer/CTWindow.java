@@ -2,7 +2,7 @@ package com.gzy.gmi.app.GMIViewer;
 
 public class CTWindow {
 
-    private final int MIN_WINDOW_SIZE = 10;
+    public static final int MIN_WINDOW_SIZE = 10;
 
     /** bottom of window */
     private int winLow;
@@ -91,21 +91,24 @@ public class CTWindow {
             setWinHigh(LOWEST_CT_VALUE + winSize);
             setWinLow(LOWEST_CT_VALUE);
         } else {
+            int winSize = this.winSize;
             setWinHigh(winPosition + winSize / 2);
             setWinLow(winPosition - winSize / 2);
         }
     }
 
     public void setWinSize(int winSize) {
-        if (this.winMid + winSize / 2 > HIGHEST_CT_VALUE) {
+        if(winSize < MIN_WINDOW_SIZE || winSize > MAX_WINDOW_SIZE) { return; }
+        if (this.winMid + (winSize + 1) / 2 > HIGHEST_CT_VALUE) {
             setWinLow(HIGHEST_CT_VALUE - winSize);
             setWinHigh(HIGHEST_CT_VALUE);
         } else if(this.winMid - winSize / 2 < LOWEST_CT_VALUE) {
             setWinHigh(LOWEST_CT_VALUE + winSize);
             setWinLow(LOWEST_CT_VALUE);
         } else {
-            setWinHigh(this.winMid + winSize / 2);
-            setWinLow(this.winMid - winSize / 2);
+            int winMid = this.winMid;
+            setWinHigh(winMid + (winSize + 1) / 2);
+            setWinLow(winMid - winSize / 2);
         }
     }
 

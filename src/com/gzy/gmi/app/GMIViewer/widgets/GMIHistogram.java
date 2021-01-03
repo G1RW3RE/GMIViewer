@@ -1,7 +1,10 @@
-package com.gzy.gmi.app.GMIViewer;
+package com.gzy.gmi.app.GMIViewer.widgets;
+
+import com.gzy.gmi.app.GMIViewer.CTWindow;
 
 import javax.swing.JPanel;
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
 
@@ -36,12 +39,12 @@ public class GMIHistogram extends JPanel {
             // paint hist
             g.drawImage(histImage, 0, 0, getWidth(), getHeight(), this);
 
-            // TODO paint control points
+            // TODO left/right drag control
             int winLow = (int) ((long)(ctWindow.getWinLow() - CTWindow.LOWEST_CT_VALUE) * getWidth() / CTWindow.MAX_WINDOW_SIZE);
             int winHigh = (int) ((long)(ctWindow.getWinHigh() - CTWindow.LOWEST_CT_VALUE) * getWidth() / CTWindow.MAX_WINDOW_SIZE);
             g.setColor(Color.GREEN);
             g.drawLine(0, getHeight() - 1, winLow, getHeight() - 1);
-            g.drawLine(winLow, getHeight(), winHigh, 0);
+            g.drawLine(winLow, getHeight() - 1, winHigh, 1);
             g.drawLine(winHigh, 1, getWidth(), 1);
         }
     }
@@ -90,7 +93,7 @@ public class GMIHistogram extends JPanel {
             }
         }
         // height of hist
-        int maxCount = highestCount / 2;
+        int maxCount = highestCount * 2 / 3;
         int count;
         for(i = 0; i < width; i++) {
             count = (int) ((long)scaledHistData[i] * height / maxCount);

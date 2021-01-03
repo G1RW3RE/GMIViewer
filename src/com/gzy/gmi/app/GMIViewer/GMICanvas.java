@@ -4,9 +4,18 @@ import com.gzy.gmi.app.GMIViewer.widgets.LayerChangeEvent;
 import com.gzy.gmi.app.GMIViewer.widgets.LayerChangeListener;
 import com.gzy.gmi.app.GMIViewer.widgets.LayerChangeNotifier;
 
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.*;
+import javax.swing.JPanel;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.event.AdjustmentEvent;
+import java.awt.event.AdjustmentListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
 import java.util.ArrayList;
@@ -185,6 +194,13 @@ public class GMICanvas extends JPanel
             // TODO DEBUGGING
             g.drawString("(" + currentLayer + "," + hAxis + "," + vAxis + "): " + imgData[currentLayer][hAxis * imgWidth + vAxis], 10, 30);
         }
+    }
+
+    /** when ctWindow changes, invoke this method */
+    public void updateOnCtWindowChange() {
+        int[] displayImageData = resolveRaw(imgData[currentLayer]);
+        raster.setPixels(0, 0, imgWidth, imgHeight, displayImageData);
+        image.setData(raster);
     }
 
     @Override

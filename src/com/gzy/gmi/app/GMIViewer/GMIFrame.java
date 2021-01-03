@@ -1,29 +1,25 @@
 package com.gzy.gmi.app.GMIViewer;
 
+import com.gzy.gmi.app.GMIViewer.widgets.GMIHistogram;
 import com.gzy.gmi.app.GMIViewer.widgets.GMIScrollBar;
 import com.gzy.gmi.app.GMIViewer.widgets.GMIScrollBarUI;
 import com.gzy.gmi.util.GMILoader;
 import com.gzy.gmi.util.MHDInfo;
 import com.gzy.gmi.util.RawData;
 
-import javax.swing.BorderFactory;
-import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.Spring;
-import javax.swing.SpringLayout;
-import javax.swing.WindowConstants;
+import javax.swing.*;
 import javax.swing.border.TitledBorder;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.GridLayout;
+import java.awt.*;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
 import java.io.File;
 import java.io.IOException;
 
 /**
  * main frame of GMIViewer
  * */
-public class GMIFrame extends JFrame {
+public class GMIFrame extends JFrame implements MouseListener, MouseMotionListener {
 
     public GMIFrame() {
         super("GMIViewer医学图像查看器");
@@ -43,13 +39,19 @@ public class GMIFrame extends JFrame {
     private GMIScrollBar scrollBar00, scrollBar01, scrollBar10, scrollBar11;
     private GMICanvas canvas00, canvas01, canvas10, canvas11;
     private GMIHistogram histogram;
+    private JTextField txtWindowSize, txtWindowPosition;
+    private final JLabel lblWindowSize = new JLabel("窗宽:");
+    private final JLabel lblWindowWidth = new JLabel("　窗位:");
 
     private static final int WINDOW_MIN_WIDTH = 700;
     private static final int WINDOW_MIN_HEIGHT = 450;
     private static final int TOOL_PANE_WIDTH = 250;
     private static final int DISPLAY_PANE_MIN_WIDTH = 450;
 
-    private static final int HISTOGRAM_HEIGHT = 150;
+    private static final int HISTOGRAM_HEIGHT = 160;
+    private static final int ADJUSTMENT_INPUT_HEIGHT = 25;
+
+    private static final Font GLOBAL_FONT = new Font("等线", Font.BOLD, 16);
 
     private CTWindow ctWindow;
 
@@ -63,7 +65,6 @@ public class GMIFrame extends JFrame {
         /* === TOOL PANE === */
         // tool pane init
         toolPane = new JPanel();
-        toolPane.setBackground(Color.GRAY);
         toolPane.setMinimumSize(new Dimension(TOOL_PANE_WIDTH, WINDOW_MIN_HEIGHT));
         SpringLayout.Constraints tpConstraints = layout.getConstraints(toolPane);
         tpConstraints.setWidth(Spring.constant(TOOL_PANE_WIDTH));
@@ -73,9 +74,31 @@ public class GMIFrame extends JFrame {
         toolPane.setLayout(toolPaneLayout);
 
         // histogram
+        JPanel histogramWrapper = new JPanel();
+        histogramWrapper.setBorder(BorderFactory.createTitledBorder(null, "Hist", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.BLACK));
+        histogramWrapper.setLayout(new BorderLayout(0, 5));
         histogram = new GMIHistogram();
         histogram.setBackground(Color.BLACK);
-        toolPane.add(histogram);
+        histogramWrapper.add(histogram);
+        JPanel windowAdjustWrapper = new JPanel();
+        windowAdjustWrapper.setPreferredSize(new Dimension(TOOL_PANE_WIDTH, 30));
+        txtWindowSize = new JTextField();
+        txtWindowSize.setHorizontalAlignment(SwingConstants.RIGHT);
+        txtWindowSize.setFont(GLOBAL_FONT);
+        txtWindowSize.setEditable(false);
+        txtWindowPosition = new JTextField();
+        txtWindowPosition.setHorizontalAlignment(SwingConstants.RIGHT);
+        txtWindowPosition.setFont(GLOBAL_FONT);
+        txtWindowPosition.setEditable(false);
+        lblWindowSize.setFont(GLOBAL_FONT);
+        lblWindowWidth.setFont(GLOBAL_FONT);
+        windowAdjustWrapper.setLayout(new GridLayout(1, 4));
+        windowAdjustWrapper.add(lblWindowSize);
+        windowAdjustWrapper.add(txtWindowSize);
+        windowAdjustWrapper.add(lblWindowWidth);
+        windowAdjustWrapper.add(txtWindowPosition);
+        histogramWrapper.add(windowAdjustWrapper, BorderLayout.SOUTH);
+        toolPane.add(histogramWrapper);
 
         /* === DISPLAY PANE === */
         // Display pane outer
@@ -87,7 +110,7 @@ public class GMIFrame extends JFrame {
 
         // Display pane inner
         displayPane = new JPanel();
-        displayPane.setBackground(Color.yellow);
+        displayPane.setBackground(Color.YELLOW);
         displayPane.setLayout(new GridLayout(2, 2));
         displayPaneOuter.add(displayPane);
 
@@ -156,11 +179,10 @@ public class GMIFrame extends JFrame {
         layout.putConstraint(SpringLayout.NORTH, displayPaneOuter, 0, SpringLayout.NORTH, getContentPane());
         layout.putConstraint(SpringLayout.SOUTH, displayPaneOuter, 0, SpringLayout.SOUTH, getContentPane());
 
-        toolPaneLayout.putConstraint(SpringLayout.NORTH, histogram, 5, SpringLayout.NORTH, toolPane);
-        toolPaneLayout.putConstraint(SpringLayout.SOUTH, histogram, HISTOGRAM_HEIGHT, SpringLayout.NORTH, histogram);
-        toolPaneLayout.putConstraint(SpringLayout.WEST, histogram, 3, SpringLayout.WEST, toolPane);
-        toolPaneLayout.putConstraint(SpringLayout.EAST, histogram, -3, SpringLayout.EAST, toolPane);
-
+        toolPaneLayout.putConstraint(SpringLayout.NORTH, histogramWrapper, 0, SpringLayout.NORTH, toolPane);
+        toolPaneLayout.putConstraint(SpringLayout.SOUTH, histogramWrapper, HISTOGRAM_HEIGHT + ADJUSTMENT_INPUT_HEIGHT, SpringLayout.NORTH, histogramWrapper);
+        toolPaneLayout.putConstraint(SpringLayout.WEST, histogramWrapper, 0, SpringLayout.WEST, toolPane);
+        toolPaneLayout.putConstraint(SpringLayout.EAST, histogramWrapper, -0, SpringLayout.EAST, toolPane);
 
         // add listeners
         canvas00.addLayerChangeListener(scrollBar00);
@@ -173,6 +195,11 @@ public class GMIFrame extends JFrame {
         canvas00.bindAxisTo(canvas10, canvas01);
         canvas01.bindAxisTo(canvas00, canvas10);
         canvas10.bindAxisTo(canvas00, canvas01);
+
+        histogram.addMouseListener(this);
+        histogram.addMouseMotionListener(this);
+        txtWindowSize.addMouseListener(this);
+        txtWindowPosition.addMouseListener(this);
     }
 
     /** mhd Information data */
@@ -199,8 +226,8 @@ public class GMIFrame extends JFrame {
         canvas10.loadImageData(rawData.frontSlice, mhdInfo.x, mhdInfo.z, ctWindow);
         // load histogram
         histogram.loadHist(rawData.histogram, ctWindow);
-        ctWindow.setWinLow(-400);
-        ctWindow.setWinHigh(500);
+        txtWindowSize.setText("" + (rawData.highestValue - rawData.lowestValue));
+        txtWindowPosition.setText("" + (rawData.highestValue + rawData.lowestValue) / 2);
         // TODO Optimize resizing
         setSize(new Dimension(mhdInfo.x * 3, mhdInfo.y * 2));
         setLocationRelativeTo(null);
@@ -223,5 +250,118 @@ public class GMIFrame extends JFrame {
             }
         });
         thread.start();
+    }
+
+    @Override
+    public void mouseClicked(MouseEvent e) {
+        if(e.getSource() == txtWindowSize) {
+            if (e.getClickCount() >= 2 && e.getButton() == MouseEvent.BUTTON1) {
+                String winSizeStr = JOptionPane.showInputDialog(this,
+                        "请输入窗宽(" + CTWindow.MIN_WINDOW_SIZE + "~" + CTWindow.MAX_WINDOW_SIZE + ")：",
+                        "设置窗宽",
+                        JOptionPane.PLAIN_MESSAGE);
+                int winSize;
+                try {
+                    winSize = Integer.parseInt(winSizeStr);
+                    ctWindow.setWinSize(winSize);
+                    updateOnCtWindowChanged();
+                } catch (NumberFormatException ex) {
+                    // ignored
+                }
+            }
+        } else if (e.getSource() == txtWindowPosition) {
+            if(e.getClickCount() >= 2 && e.getButton() == MouseEvent.BUTTON1) {
+                String winPositionStr = JOptionPane.showInputDialog(this,
+                        "请输入窗位("
+                                + CTWindow.MIN_WINDOW_SIZE + "~" + (CTWindow.MAX_WINDOW_SIZE - CTWindow.MIN_WINDOW_SIZE)
+                                + ")：",
+                        "设置窗位",
+                        JOptionPane.PLAIN_MESSAGE);
+                int winPosition;
+                try {
+                    winPosition = Integer.parseInt(winPositionStr);
+                    ctWindow.setWinPosition(winPosition);
+                    updateOnCtWindowChanged();
+                } catch (NumberFormatException ex) {
+                    // ignored
+                }
+            }
+        }
+    }
+
+    /** update layer data when ct window changes */
+    private void updateOnCtWindowChanged() {
+        txtWindowPosition.setText("" + ctWindow.getWinMid());
+        txtWindowSize.setText("" + ctWindow.getWinSize());
+        canvas00.updateOnCtWindowChange();
+        canvas01.updateOnCtWindowChange();
+        canvas10.updateOnCtWindowChange();
+        repaint();
+    }
+
+    /** mouse status */
+    private boolean isMouseButton1Dragging;
+    /** mouse status */
+    private boolean isMouseButton3Dragging;
+
+    @Override
+    public void mousePressed(MouseEvent e) {
+        if(e.getSource() == histogram) {
+            isMouseButton1Dragging |= e.getButton() == MouseEvent.BUTTON1;
+            isMouseButton3Dragging |= e.getButton() == MouseEvent.BUTTON3;
+            if(isMouseButton1Dragging) lastMouseX1 = e.getX();
+            if(isMouseButton3Dragging) lastMouseX3 = e.getX();
+        }
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent e) {
+        if(e.getSource() == histogram) {
+            isMouseButton1Dragging &= !(e.getButton() == MouseEvent.BUTTON1);
+            isMouseButton3Dragging &= !(e.getButton() == MouseEvent.BUTTON3);
+            if(!isMouseButton1Dragging) lastMouseX1 = 0;
+            if(!isMouseButton3Dragging) lastMouseX3 = 0;
+        }
+    }
+
+    @Override
+    public void mouseEntered(MouseEvent e) {
+        // skip
+    }
+
+    @Override
+    public void mouseExited(MouseEvent e) {
+        // skip
+    }
+
+    /** save last mouse position in drag event */
+    private int lastMouseX1;
+    private int lastMouseX3;
+
+    /** spped up the drag-change rate by ratio */
+    private final static int DRAG_RATIO = 2;
+
+    @Override
+    public void mouseDragged(MouseEvent e) {
+        if(e.getSource() == histogram) {
+            int dx;
+            if(isMouseButton1Dragging) {
+                dx = e.getX() - lastMouseX1;
+                ctWindow.setWinPosition(ctWindow.getWinMid() + dx * DRAG_RATIO);
+                lastMouseX1 = e.getX();
+            }
+            if(isMouseButton3Dragging) {
+                dx = e.getX() - lastMouseX3;
+                ctWindow.setWinSize(ctWindow.getWinSize() + dx * DRAG_RATIO);
+                lastMouseX3 = e.getX();
+            }
+            updateOnCtWindowChanged();
+            repaint();
+        }
+    }
+
+    @Override
+    public void mouseMoved(MouseEvent e) {
+        // skip
     }
 }
