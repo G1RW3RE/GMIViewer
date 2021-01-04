@@ -42,6 +42,14 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
     private JTextField txtWindowSize, txtWindowPosition;
     private final JLabel lblWindowSize = new JLabel("窗宽:");
     private final JLabel lblWindowWidth = new JLabel("　窗位:");
+    private JTextField txtCordX, txtCordY, txtCordZ;
+    private final JLabel lblCordX = new JLabel("x:");
+    private final JLabel lblCordY = new JLabel("y:");
+    private final JLabel lblCordZ = new JLabel("z:");
+    private JTextField txtIntensity, txtMaskBelong;
+    private final JLabel lblIntensity = new JLabel("强度:");
+    private final JLabel lblMaskBelong = new JLabel("图层:");
+
 
     private static final int WINDOW_MIN_WIDTH = 700;
     private static final int WINDOW_MIN_HEIGHT = 450;
@@ -75,13 +83,15 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
 
         // histogram
         JPanel histogramWrapper = new JPanel();
-        histogramWrapper.setBorder(BorderFactory.createTitledBorder(null, "Hist", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.BLACK));
+        histogramWrapper.setBorder(BorderFactory.createTitledBorder(null, "直方图", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, GLOBAL_FONT, Color.BLACK));
         histogramWrapper.setLayout(new BorderLayout(0, 5));
         histogram = new GMIHistogram();
         histogram.setBackground(Color.BLACK);
         histogramWrapper.add(histogram);
+
         JPanel windowAdjustWrapper = new JPanel();
         windowAdjustWrapper.setPreferredSize(new Dimension(TOOL_PANE_WIDTH, 30));
+
         txtWindowSize = new JTextField();
         txtWindowSize.setHorizontalAlignment(SwingConstants.RIGHT);
         txtWindowSize.setFont(GLOBAL_FONT);
@@ -92,20 +102,77 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         txtWindowPosition.setEditable(false);
         lblWindowSize.setFont(GLOBAL_FONT);
         lblWindowWidth.setFont(GLOBAL_FONT);
+
         windowAdjustWrapper.setLayout(new GridLayout(1, 4));
         windowAdjustWrapper.add(lblWindowSize);
         windowAdjustWrapper.add(txtWindowSize);
         windowAdjustWrapper.add(lblWindowWidth);
         windowAdjustWrapper.add(txtWindowPosition);
+
         histogramWrapper.add(windowAdjustWrapper, BorderLayout.SOUTH);
         toolPane.add(histogramWrapper);
+
+        // x, y, z; value, mask display
+        JPanel cordWrapper = new JPanel();
+        cordWrapper.setBorder(BorderFactory.createTitledBorder(null, "坐标", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, GLOBAL_FONT, Color.BLACK));
+        cordWrapper.setLayout(new GridLayout(2, 1));
+        toolPane.add(cordWrapper);
+
+        // x, y, z display
+        JPanel cordWrapperUp = new JPanel();
+        cordWrapperUp.setLayout(null);
+        cordWrapperUp.setPreferredSize(new Dimension(TOOL_PANE_WIDTH, 35));
+        cordWrapper.add(cordWrapperUp);
+
+        txtCordX = new JTextField();
+        txtCordX.setHorizontalAlignment(SwingConstants.RIGHT);
+        txtCordX.setFont(GLOBAL_FONT);
+        txtCordX.setEditable(false);
+        txtCordY = new JTextField();
+        txtCordY.setHorizontalAlignment(SwingConstants.RIGHT);
+        txtCordY.setFont(GLOBAL_FONT);
+        txtCordY.setEditable(false);
+        txtCordZ = new JTextField();
+        txtCordZ.setHorizontalAlignment(SwingConstants.RIGHT);
+        txtCordZ.setFont(GLOBAL_FONT);
+        txtCordZ.setEditable(false);
+        lblCordX.setFont(GLOBAL_FONT);
+        lblCordY.setFont(GLOBAL_FONT);
+        lblCordZ.setFont(GLOBAL_FONT);
+        cordWrapperUp.add(lblCordX);
+        cordWrapperUp.add(txtCordX);
+        cordWrapperUp.add(lblCordY);
+        cordWrapperUp.add(txtCordY);
+        cordWrapperUp.add(lblCordZ);
+        cordWrapperUp.add(txtCordZ);
+
+        // value, mask display
+        JPanel cordWrapperDown = new JPanel();
+        cordWrapperDown.setLayout(null);
+        cordWrapperDown.setPreferredSize(new Dimension(TOOL_PANE_WIDTH, 35));
+        cordWrapper.add(cordWrapperDown);
+
+        txtIntensity = new JTextField();
+        txtIntensity.setHorizontalAlignment(SwingConstants.RIGHT);
+        txtIntensity.setFont(GLOBAL_FONT);
+        txtIntensity.setEditable(false);
+        txtMaskBelong = new JTextField();
+        txtMaskBelong.setHorizontalAlignment(SwingConstants.RIGHT);
+        txtMaskBelong.setFont(GLOBAL_FONT);
+        txtMaskBelong.setEditable(false);
+        lblIntensity.setFont(GLOBAL_FONT);
+        lblMaskBelong.setFont(GLOBAL_FONT);
+        cordWrapperDown.add(lblIntensity);
+        cordWrapperDown.add(txtIntensity);
+        cordWrapperDown.add(lblMaskBelong);
+        cordWrapperDown.add(txtMaskBelong);
+
 
         /* === DISPLAY PANE === */
         // Display pane outer
         displayPaneOuter = new JPanel();
         displayPaneOuter.setMinimumSize(new Dimension(DISPLAY_PANE_MIN_WIDTH, WINDOW_MIN_HEIGHT));
         displayPaneOuter.setLayout(new BorderLayout());
-        displayPaneOuter.setBackground(Color.CYAN);
         add(displayPaneOuter);
 
         // Display pane inner
@@ -183,6 +250,21 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         toolPaneLayout.putConstraint(SpringLayout.SOUTH, histogramWrapper, HISTOGRAM_HEIGHT + ADJUSTMENT_INPUT_HEIGHT, SpringLayout.NORTH, histogramWrapper);
         toolPaneLayout.putConstraint(SpringLayout.WEST, histogramWrapper, 0, SpringLayout.WEST, toolPane);
         toolPaneLayout.putConstraint(SpringLayout.EAST, histogramWrapper, -0, SpringLayout.EAST, toolPane);
+        toolPaneLayout.putConstraint(SpringLayout.NORTH, cordWrapper, 0, SpringLayout.SOUTH, histogramWrapper);
+        toolPaneLayout.putConstraint(SpringLayout.WEST, cordWrapper, 0, SpringLayout.WEST, toolPane);
+        toolPaneLayout.putConstraint(SpringLayout.EAST, cordWrapper, -0, SpringLayout.EAST, toolPane);
+
+        lblCordX.setBounds(5, 0, 20, 30);
+        txtCordX.setBounds(25, 2, 50, 28);
+        lblCordY.setBounds(85, 0, 20, 30);
+        txtCordY.setBounds(105, 2, 50, 28);
+        lblCordZ.setBounds(165, 0, 20, 30);
+        txtCordZ.setBounds(185, 2, 50, 28);
+
+        lblIntensity.setBounds(5, 0, 40, 30);
+        txtIntensity.setBounds(45, 2, 70, 28);
+        lblMaskBelong.setBounds(122, 0, 40, 30);
+        txtMaskBelong.setBounds(167, 2, 68, 28);
 
         // add listeners
         canvas00.addLayerChangeListener(scrollBar00);
