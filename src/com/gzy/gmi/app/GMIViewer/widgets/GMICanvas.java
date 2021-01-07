@@ -1,14 +1,12 @@
-package com.gzy.gmi.app.GMIViewer;
+package com.gzy.gmi.app.GMIViewer.widgets;
 
-import com.gzy.gmi.app.GMIViewer.widgets.LayerChangeEvent;
-import com.gzy.gmi.app.GMIViewer.widgets.LayerChangeListener;
-import com.gzy.gmi.app.GMIViewer.widgets.LayerChangeNotifier;
 import com.gzy.gmi.util.CTWindow;
 import com.gzy.gmi.util.GMIMask3D;
 
 import javax.swing.JPanel;
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.event.MouseEvent;
@@ -26,7 +24,14 @@ public class GMICanvas extends JPanel
         implements MouseWheelListener, MouseMotionListener, MouseListener, LayerChangeNotifier {
 
     // TODO better stroke
-    private static final BasicStroke DASHED_STROKE = new BasicStroke(1.0f,
+    private static final BasicStroke DASHED_STROKE = new BasicStroke(1.2f,
+            BasicStroke.CAP_BUTT,
+            BasicStroke.JOIN_MITER,
+            10.0f,
+            new float[]{10.0f},
+            0.0f);
+
+    private static final BasicStroke DASHED_STROKE_RG = new BasicStroke(0.6f,
             BasicStroke.CAP_BUTT,
             BasicStroke.JOIN_MITER,
             10.0f,
@@ -149,37 +154,40 @@ public class GMICanvas extends JPanel
         int[] data = new int[len];
         boolean[] iMask;
         int color;
-        if(ORIENT_BOTTOM.equals(orientation)) {
-            for(GMIMask3D mask : maskList) {
-                iMask = mask.bottomSlice[currentLayer];
-                color = mask.getColor() | MASK_ALPHA;
-                for (int i = 0; i < len; i++) {
-                    if(iMask[i]) {
-                        data[i] = color;
+        if (!maskList.isEmpty()) {
+            if (ORIENT_BOTTOM.equals(orientation)) {
+                for (GMIMask3D mask : maskList) {
+                    iMask = mask.bottomSlice[currentLayer];
+                    color = mask.getColor() | MASK_ALPHA;
+                    for (int i = 0; i < len; i++) {
+                        if (iMask[i]) {
+                            data[i] = color;
+                        }
                     }
                 }
-            }
-        } else if(ORIENT_FRONT.equals(orientation)) {
-            for(GMIMask3D mask : maskList) {
-                iMask = mask.frontSlice[currentLayer];
-                color = mask.getColor() | MASK_ALPHA;
-                for (int i = 0; i < len; i++) {
-                    if(iMask[i]) {
-                        data[i] = color;
+            } else if (ORIENT_FRONT.equals(orientation)) {
+                for (GMIMask3D mask : maskList) {
+                    iMask = mask.frontSlice[currentLayer];
+                    color = mask.getColor() | MASK_ALPHA;
+                    for (int i = 0; i < len; i++) {
+                        if (iMask[i]) {
+                            data[i] = color;
+                        }
                     }
                 }
-            }
-        } else if(ORIENT_RIGHT.equals(orientation)) {
-            for(GMIMask3D mask : maskList) {
-                iMask = mask.rightSlice[currentLayer];
-                color = mask.getColor() | MASK_ALPHA;
-                for (int i = 0; i < len; i++) {
-                    if(iMask[i]) {
-                        data[i] = color;
+            } else if (ORIENT_RIGHT.equals(orientation)) {
+                for (GMIMask3D mask : maskList) {
+                    iMask = mask.rightSlice[currentLayer];
+                    color = mask.getColor() | MASK_ALPHA;
+                    for (int i = 0; i < len; i++) {
+                        if (iMask[i]) {
+                            data[i] = color;
+                        }
                     }
                 }
             }
         }
+        // if empty list, return zeros
         return data;
     }
 
@@ -203,6 +211,30 @@ public class GMICanvas extends JPanel
         return currentLayer;
     }
 
+    public GMIMask3D getCurrentMask() {
+        GMIMask3D mask = null;
+        if(ORIENT_BOTTOM.equals(orientation)) {
+            for(GMIMask3D iMask : maskList) {
+                if(iMask.bottomSlice[currentLayer][xAxis + yAxis * imgWidth]) {
+                    mask = iMask;
+                }
+            }
+        } else if(ORIENT_FRONT.equals(orientation)) {
+            for(GMIMask3D iMask : maskList) {
+                if(iMask.frontSlice[currentLayer][xAxis + yAxis * imgWidth]) {
+                    mask = iMask;
+                }
+            }
+        } else if(ORIENT_RIGHT.equals(orientation)) {
+            for(GMIMask3D iMask : maskList) {
+                if(iMask.rightSlice[currentLayer][xAxis + yAxis * imgWidth]) {
+                    mask = iMask;
+                }
+            }
+        }
+        return mask;
+    }
+
     public int getCurrentValue() {
         if(imgData != null) {
             return imgData[currentLayer][xAxis + yAxis * imgWidth];
@@ -218,6 +250,8 @@ public class GMICanvas extends JPanel
 
     /** Visual area of image */
     private int visX, visY, visWidth, visHeight;
+
+    private static final Font TEXT_FONT = new Font("Times New Roman", Font.PLAIN, 16);
 
     @Override
     public void paint(Graphics g) {
@@ -243,12 +277,43 @@ public class GMICanvas extends JPanel
             // draw mask image
             g.drawImage(maskImage, visX, visY, visWidth, visHeight, this);
             // paint vAxis\hAxis
-            int hAxisDisplay = yAxis * visWidth / imgWidth;
-            int vAxisDisplay = xAxis * visHeight / imgHeight;
+            int yAxisDisplay = yAxis * visWidth / imgWidth;
+            int xAxisDisplay = xAxis * visHeight / imgHeight;
             ((Graphics2D) g).setStroke(DASHED_STROKE);
-            g.setColor(Color.ORANGE);
-            g.drawLine(visX, visY + hAxisDisplay, visX + visWidth, visY + hAxisDisplay);
-            g.drawLine(visX + vAxisDisplay, visY, visX + vAxisDisplay, visY + visHeight);
+            g.setColor(Color.CYAN);
+            g.drawLine(visX, visY + yAxisDisplay, visX + visWidth, visY + yAxisDisplay);
+            g.drawLine(visX + xAxisDisplay, visY, visX + xAxisDisplay, visY + visHeight);
+            // paint orients characters
+            String upCh, downCh, lCh, rCh;
+            switch (orientation) {
+                case ORIENT_BOTTOM:
+                    upCh = "A";
+                    downCh = "P";
+                    lCh = "R";
+                    rCh = "L";
+                    break;
+                case ORIENT_FRONT:
+                    upCh = "S";
+                    downCh = "I";
+                    lCh = "R";
+                    rCh = "L";
+                    break;
+                case ORIENT_RIGHT:
+                    upCh = "S";
+                    downCh = "I";
+                    lCh = "A";
+                    rCh = "P";
+                    break;
+                default:
+                    upCh = downCh = lCh = rCh = "";
+                    break;
+            }
+            g.setFont(TEXT_FONT);
+            g.setColor(Color.GREEN);
+            g.drawString(upCh, w / 2, 14);
+            g.drawString(downCh, w / 2, h - 8);
+            g.drawString(lCh, 3, h / 2);
+            g.drawString(rCh, w - 12, h / 2);
         }
     }
 
@@ -261,9 +326,8 @@ public class GMICanvas extends JPanel
 
     /** when mask changes, invoke this method */
     public void updateOnMaskChange() {
-        if(maskList != null && maskList.size() != 0) {
+        if(maskList != null) {
             int[] displayMaskData = resolveMasks();
-//            maskRaster.setPixels(0, 0, imgWidth, imgHeight, displayMaskData);
             maskRaster.setDataElements(0, 0, imgWidth, imgHeight, displayMaskData);
             maskImage.setData(maskRaster);
         }
@@ -345,5 +409,17 @@ public class GMICanvas extends JPanel
         for(LayerChangeListener l : layerChangeListenerList) {
             l.onLayerChanged(lastEvent);
         }
+    }
+
+    private boolean regionGrowMode = false;
+
+    /** region grow Mode, show region grow selection axis */
+    public void startRegionGrowMode() {
+        regionGrowMode = true;
+    }
+
+    /** normal Mode */
+    public void endRegionGrowMode() {
+        regionGrowMode = false;
     }
 }
