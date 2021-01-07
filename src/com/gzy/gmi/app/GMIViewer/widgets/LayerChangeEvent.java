@@ -1,20 +1,30 @@
 package com.gzy.gmi.app.GMIViewer.widgets;
 
-import javax.swing.*;
+import javax.swing.JComponent;
 
 public class LayerChangeEvent {
 
+    /** event source */
     private JComponent eventSource;
 
+    /** number changed */
     private int layer;
 
-    public LayerChangeEvent(int layer) {
-        this(null, layer);
+    /** indicates which cord changed */
+    private int which;
+
+    public final static int TYPE_CORD_X = 0;
+    public final static int TYPE_CORD_Y = 1;
+    public final static int TYPE_CORD_Z = 2;
+
+    public LayerChangeEvent(int layer, int which) {
+        this(null, layer, which);
     }
 
-    public LayerChangeEvent(JComponent eventSource, int layer) {
+    public LayerChangeEvent(JComponent eventSource, int layer, int which) {
         this.setEventSource(eventSource);
         this.setLayer(layer);
+        this.setType(which);
     }
 
     public int getLayer() {
@@ -27,6 +37,14 @@ public class LayerChangeEvent {
 
     public JComponent getEventSource() {
         return eventSource;
+    }
+
+    public void setType(int which) {
+        this.which = which;
+    }
+
+    public int getType() {
+        return this.which;
     }
 
     public void setEventSource(JComponent eventSource) {

@@ -5,7 +5,7 @@ import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.PlainDocument;
 
-/** W.I.P. */
+/* W.I.P. currently deprecated */
 /** text field that only accepts numbers in a certain range */
 public class GMIRestrictedNumberField extends JTextField {
 
@@ -47,7 +47,7 @@ public class GMIRestrictedNumberField extends JTextField {
             super.remove(offs, len);
         }
 
-        /** restric input string to numbers */
+        /** restrict input string to numbers */
         @Override
         public void insertString(int offs, String str, AttributeSet attr) throws BadLocationException {
             int newVal;

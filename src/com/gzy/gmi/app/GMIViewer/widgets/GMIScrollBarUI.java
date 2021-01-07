@@ -8,6 +8,6 @@ public class GMIScrollBarUI extends BasicScrollBarUI {
         super();
     }
 
-    // TODO 好看的滚动条
+    // TODO 美化滚动条
 
 }

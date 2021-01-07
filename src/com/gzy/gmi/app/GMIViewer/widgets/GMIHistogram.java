@@ -1,10 +1,12 @@
 package com.gzy.gmi.app.GMIViewer.widgets;
 
-import com.gzy.gmi.app.GMIViewer.CTWindow;
+import com.gzy.gmi.util.CTWindow;
 
 import javax.swing.JPanel;
+import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
 
@@ -36,12 +38,20 @@ public class GMIHistogram extends JPanel {
     public void paint(Graphics g) {
         super.paint(g);
         if(histImage != null) {
-            // paint hist
-            g.drawImage(histImage, 0, 0, getWidth(), getHeight(), this);
-
-            // TODO left/right drag control
             int winLow = (int) ((long)(ctWindow.getWinLow() - CTWindow.LOWEST_CT_VALUE) * getWidth() / CTWindow.MAX_WINDOW_SIZE);
             int winHigh = (int) ((long)(ctWindow.getWinHigh() - CTWindow.LOWEST_CT_VALUE) * getWidth() / CTWindow.MAX_WINDOW_SIZE);
+
+            // paint hist
+            ((Graphics2D) g).setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_ATOP, 0.5f));
+            // left side
+            g.drawImage(histImage, 0, 0, winLow, getHeight(),
+                    0, 0, winLow, getHeight(), this);
+            g.drawImage(histImage, winHigh, 0, getWidth(), getHeight(),
+                    winHigh, 0, getWidth(), getHeight(), this);
+            ((Graphics2D) g).setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER));
+            g.drawImage(histImage, winLow, 0, winHigh, getHeight(),
+                    winLow, 0, winHigh, getHeight(), this);
+
             g.setColor(Color.GREEN);
             g.drawLine(0, getHeight() - 1, winLow, getHeight() - 1);
             g.drawLine(winLow, getHeight() - 1, winHigh, 1);
@@ -93,10 +103,12 @@ public class GMIHistogram extends JPanel {
             }
         }
         // height of hist
-        int maxCount = highestCount * 2 / 3;
+//        int maxCount = highestCount * 2 / 3;
+        double maxCount = 1.2 * Math.log(highestCount + 1);
         int count;
         for(i = 0; i < width; i++) {
-            count = (int) ((long)scaledHistData[i] * height / maxCount);
+//            count = (int) ((long)scaledHistData[i] * height / maxCount);
+            count = (int) (Math.log(scaledHistData[i] + 1) / maxCount * height);
             count = Math.min(count, height);
             for(j = 0; j < count; j++) {
                 System.arraycopy(histColor, 0, imgData, ((height - 1 - j) * width + i) * 4, 4);

@@ -1,25 +1,57 @@
 package com.gzy.gmi.app.GMIViewer;
 
 import com.gzy.gmi.app.GMIViewer.widgets.GMIHistogram;
+import com.gzy.gmi.app.GMIViewer.widgets.GMIMaskListCellRenderer;
 import com.gzy.gmi.app.GMIViewer.widgets.GMIScrollBar;
 import com.gzy.gmi.app.GMIViewer.widgets.GMIScrollBarUI;
+import com.gzy.gmi.app.GMIViewer.widgets.GMIThreshDialog;
+import com.gzy.gmi.app.GMIViewer.widgets.LayerChangeEvent;
+import com.gzy.gmi.app.GMIViewer.widgets.LayerChangeListener;
+import com.gzy.gmi.util.CTWindow;
 import com.gzy.gmi.util.GMILoader;
+import com.gzy.gmi.util.GMIMask3D;
 import com.gzy.gmi.util.MHDInfo;
 import com.gzy.gmi.util.RawData;
 
-import javax.swing.*;
+import javax.swing.BorderFactory;
+import javax.swing.DefaultListModel;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JMenu;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.JScrollPane;
+import javax.swing.JTextField;
+import javax.swing.Spring;
+import javax.swing.SpringLayout;
+import javax.swing.SwingConstants;
+import javax.swing.WindowConstants;
 import javax.swing.border.TitledBorder;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.AdjustmentEvent;
+import java.awt.event.AdjustmentListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.io.File;
 import java.io.IOException;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * main frame of GMIViewer
  * */
-public class GMIFrame extends JFrame implements MouseListener, MouseMotionListener {
+public class GMIFrame extends JFrame implements MouseListener, MouseMotionListener,
+        LayerChangeListener, AdjustmentListener, ActionListener {
 
     public GMIFrame() {
         super("GMIViewer医学图像查看器");
@@ -35,21 +67,32 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
     }
 
     private JPanel toolPane;
-    private JPanel displayPaneOuter, displayPane;
+    private JPanel displayPaneWrapper, displayPane;
     private GMIScrollBar scrollBar00, scrollBar01, scrollBar10, scrollBar11;
     private GMICanvas canvas00, canvas01, canvas10, canvas11;
     private GMIHistogram histogram;
     private JTextField txtWindowSize, txtWindowPosition;
     private final JLabel lblWindowSize = new JLabel("窗宽:");
-    private final JLabel lblWindowWidth = new JLabel("　窗位:");
+    private final JLabel lblWindowPosition = new JLabel("　窗位:");
     private JTextField txtCordX, txtCordY, txtCordZ;
     private final JLabel lblCordX = new JLabel("x:");
     private final JLabel lblCordY = new JLabel("y:");
     private final JLabel lblCordZ = new JLabel("z:");
     private JTextField txtIntensity, txtMaskBelong;
     private final JLabel lblIntensity = new JLabel("强度:");
-    private final JLabel lblMaskBelong = new JLabel("图层:");
-
+    private final JLabel lblMaskBelong = new JLabel("遮罩:");
+    private JList<GMIMask3D> lstMask;
+    private DefaultListModel<GMIMask3D> maskListModel;
+    private JPopupMenu maskMenu;
+    private final JMenu maskMenuEditMenu = new JMenu("编辑");
+    private final JMenuItem editMenuItemThresh = new JMenuItem("阈值分割 ...");
+    private final JMenuItem editMenuItemGrow = new JMenuItem("区域生长 ...");
+    private final JMenuItem editMenuItemRename = new JMenuItem("重命名");
+    private final JMenuItem editMenuItemRecolor = new JMenuItem("修改颜色");
+    private final JMenuItem editMenuItemClear = new JMenuItem("清空");
+    private final JMenuItem maskMenuItemAdd = new JMenuItem("新建遮罩");
+    private final JMenuItem maskMenuItemDuplicate = new JMenuItem("复制");
+    private final JMenuItem maskMenuItemDelete = new JMenuItem("删除");
 
     private static final int WINDOW_MIN_WIDTH = 700;
     private static final int WINDOW_MIN_HEIGHT = 450;
@@ -63,6 +106,14 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
 
     private CTWindow ctWindow;
 
+    /** mhd Information data */
+    MHDInfo mhdInfo;
+    /** raw image array data */
+    RawData rawData;
+
+    /** list of masks */
+    List<GMIMask3D> mask3DList;
+
     /** initialize components to be used in frame */
     private void initComponents() {
         //           tools      image x 4
@@ -70,7 +121,9 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         SpringLayout layout = new SpringLayout();
         setLayout(layout);
 
-        /* === TOOL PANE === */
+
+    /* === TOOL PANE === */
+
         // tool pane init
         toolPane = new JPanel();
         toolPane.setMinimumSize(new Dimension(TOOL_PANE_WIDTH, WINDOW_MIN_HEIGHT));
@@ -83,7 +136,8 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
 
         // histogram
         JPanel histogramWrapper = new JPanel();
-        histogramWrapper.setBorder(BorderFactory.createTitledBorder(null, "直方图", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, GLOBAL_FONT, Color.BLACK));
+        histogramWrapper.setBorder(BorderFactory.createTitledBorder(null, "直方图",
+                TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, GLOBAL_FONT, Color.BLACK));
         histogramWrapper.setLayout(new BorderLayout(0, 5));
         histogram = new GMIHistogram();
         histogram.setBackground(Color.BLACK);
@@ -101,24 +155,25 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         txtWindowPosition.setFont(GLOBAL_FONT);
         txtWindowPosition.setEditable(false);
         lblWindowSize.setFont(GLOBAL_FONT);
-        lblWindowWidth.setFont(GLOBAL_FONT);
+        lblWindowPosition.setFont(GLOBAL_FONT);
 
         windowAdjustWrapper.setLayout(new GridLayout(1, 4));
         windowAdjustWrapper.add(lblWindowSize);
         windowAdjustWrapper.add(txtWindowSize);
-        windowAdjustWrapper.add(lblWindowWidth);
+        windowAdjustWrapper.add(lblWindowPosition);
         windowAdjustWrapper.add(txtWindowPosition);
 
         histogramWrapper.add(windowAdjustWrapper, BorderLayout.SOUTH);
         toolPane.add(histogramWrapper);
 
-        // x, y, z; value, mask display
+        // x, y, z; intensity, maskId display area
         JPanel cordWrapper = new JPanel();
-        cordWrapper.setBorder(BorderFactory.createTitledBorder(null, "坐标", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, GLOBAL_FONT, Color.BLACK));
+        cordWrapper.setBorder(BorderFactory.createTitledBorder(null, "坐标",
+                TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, GLOBAL_FONT, Color.BLACK));
         cordWrapper.setLayout(new GridLayout(2, 1));
         toolPane.add(cordWrapper);
 
-        // x, y, z display
+        // x, y, z display text box
         JPanel cordWrapperUp = new JPanel();
         cordWrapperUp.setLayout(null);
         cordWrapperUp.setPreferredSize(new Dimension(TOOL_PANE_WIDTH, 35));
@@ -146,7 +201,7 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         cordWrapperUp.add(lblCordZ);
         cordWrapperUp.add(txtCordZ);
 
-        // value, mask display
+        // value, mask display text box
         JPanel cordWrapperDown = new JPanel();
         cordWrapperDown.setLayout(null);
         cordWrapperDown.setPreferredSize(new Dimension(TOOL_PANE_WIDTH, 35));
@@ -167,19 +222,61 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         cordWrapperDown.add(lblMaskBelong);
         cordWrapperDown.add(txtMaskBelong);
 
+        // mask list area
+        JPanel maskWrapper = new JPanel();
+        maskWrapper.setLayout(new BorderLayout(5, 2));
+        maskWrapper.setBorder(BorderFactory.createTitledBorder(null, "图层",
+                TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, GLOBAL_FONT, Color.BLACK));
+        toolPane.add(maskWrapper);
 
-        /* === DISPLAY PANE === */
+        // mask menu
+        maskMenu = new JPopupMenu();
+        maskMenu.setBorderPainted(false);
+        maskMenu.setPopupSize(180, 4 * 30);
+        maskMenuEditMenu.setFont(GLOBAL_FONT);
+        editMenuItemThresh.setFont(GLOBAL_FONT);
+        editMenuItemGrow.setFont(GLOBAL_FONT);
+        editMenuItemRename.setFont(GLOBAL_FONT);
+        editMenuItemRecolor.setFont(GLOBAL_FONT);
+        editMenuItemClear.setFont(GLOBAL_FONT);
+        maskMenuItemAdd.setFont(GLOBAL_FONT);
+        maskMenuItemDuplicate.setFont(GLOBAL_FONT);
+        maskMenuItemDelete.setFont(GLOBAL_FONT);
+
+        maskMenu.add(maskMenuEditMenu);
+        maskMenuEditMenu.add(editMenuItemThresh);
+        maskMenuEditMenu.add(editMenuItemGrow);
+        maskMenuEditMenu.addSeparator();
+        maskMenuEditMenu.add(editMenuItemRename);
+        maskMenuEditMenu.add(editMenuItemRecolor);
+        maskMenuEditMenu.addSeparator();
+        maskMenuEditMenu.add(editMenuItemClear);
+        maskMenu.addSeparator();
+        maskMenu.add(maskMenuItemAdd);
+        maskMenu.addSeparator();
+        maskMenu.add(maskMenuItemDuplicate);
+        maskMenu.add(maskMenuItemDelete);
+
+        // list
+        lstMask = new JList<>();
+        lstMask.setCellRenderer(new GMIMaskListCellRenderer());
+        lstMask.setModel(maskListModel = new DefaultListModel<>());
+        lstMask.setBackground(Color.LIGHT_GRAY);
+        maskWrapper.add(new JScrollPane(lstMask));
+
+
+    /* === DISPLAY PANE === */
+
         // Display pane outer
-        displayPaneOuter = new JPanel();
-        displayPaneOuter.setMinimumSize(new Dimension(DISPLAY_PANE_MIN_WIDTH, WINDOW_MIN_HEIGHT));
-        displayPaneOuter.setLayout(new BorderLayout());
-        add(displayPaneOuter);
+        displayPaneWrapper = new JPanel();
+        displayPaneWrapper.setMinimumSize(new Dimension(DISPLAY_PANE_MIN_WIDTH, WINDOW_MIN_HEIGHT));
+        displayPaneWrapper.setLayout(new BorderLayout());
+        add(displayPaneWrapper);
 
-        // Display pane inner
+        // display pane inner
         displayPane = new JPanel();
-        displayPane.setBackground(Color.YELLOW);
         displayPane.setLayout(new GridLayout(2, 2));
-        displayPaneOuter.add(displayPane);
+        displayPaneWrapper.add(displayPane);
 
         canvas00 = new GMICanvas();
         canvas01 = new GMICanvas();
@@ -208,7 +305,8 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         // fill canvas wrappers
         JPanel canvasWrapper00 = new JPanel();
         canvasWrapper00.setBackground(Color.BLACK);
-        canvasWrapper00.setBorder(BorderFactory.createTitledBorder(null, "TOP", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.WHITE));
+        canvasWrapper00.setBorder(BorderFactory.createTitledBorder(null, "TOP",
+                TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.WHITE));
         canvasWrapper00.setLayout(new BorderLayout());
         canvasWrapper00.add(canvas00);
         canvasWrapper00.add(scrollBar00, BorderLayout.EAST);
@@ -216,7 +314,8 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
 
         JPanel canvasWrapper01 = new JPanel();
         canvasWrapper01.setBackground(Color.BLACK);
-        canvasWrapper01.setBorder(BorderFactory.createTitledBorder(null, "RIGHT", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.WHITE));
+        canvasWrapper01.setBorder(BorderFactory.createTitledBorder(null, "RIGHT",
+                TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.WHITE));
         canvasWrapper01.setLayout(new BorderLayout());
         canvasWrapper01.add(canvas01);
         canvasWrapper01.add(scrollBar01, BorderLayout.EAST);
@@ -224,7 +323,8 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
 
         JPanel canvasWrapper10 = new JPanel();
         canvasWrapper10.setBackground(Color.BLACK);
-        canvasWrapper10.setBorder(BorderFactory.createTitledBorder(null, "FRONT", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.WHITE));
+        canvasWrapper10.setBorder(BorderFactory.createTitledBorder(null, "FRONT",
+                TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.WHITE));
         canvasWrapper10.setLayout(new BorderLayout());
         canvasWrapper10.add(canvas10);
         canvasWrapper10.add(scrollBar10, BorderLayout.EAST);
@@ -232,27 +332,38 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
 
         JPanel canvasWrapper11 = new JPanel();
         canvasWrapper11.setBackground(Color.BLACK);
-        canvasWrapper11.setBorder(BorderFactory.createTitledBorder(null, "???", TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.WHITE));
+        canvasWrapper11.setBorder(BorderFactory.createTitledBorder(null, "???",
+                TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.WHITE));
         canvasWrapper11.setLayout(new BorderLayout());
         canvasWrapper11.add(canvas11);
         displayPane.add(canvasWrapper11);
 
-        // layout
+
+    /* === LAYOUTS === */
+
+        // global layout
         layout.putConstraint(SpringLayout.WEST, toolPane, 0, SpringLayout.WEST, getContentPane());
         layout.putConstraint(SpringLayout.SOUTH, toolPane, 0, SpringLayout.SOUTH, getContentPane());
         layout.putConstraint(SpringLayout.NORTH, toolPane, 0, SpringLayout.NORTH, getContentPane());
-        layout.putConstraint(SpringLayout.WEST, displayPaneOuter, TOOL_PANE_WIDTH, SpringLayout.WEST, toolPane);
-        layout.putConstraint(SpringLayout.EAST, displayPaneOuter, 0, SpringLayout.EAST, getContentPane());
-        layout.putConstraint(SpringLayout.NORTH, displayPaneOuter, 0, SpringLayout.NORTH, getContentPane());
-        layout.putConstraint(SpringLayout.SOUTH, displayPaneOuter, 0, SpringLayout.SOUTH, getContentPane());
+        layout.putConstraint(SpringLayout.WEST, displayPaneWrapper, TOOL_PANE_WIDTH, SpringLayout.WEST, toolPane);
+        layout.putConstraint(SpringLayout.EAST, displayPaneWrapper, 0, SpringLayout.EAST, getContentPane());
+        layout.putConstraint(SpringLayout.NORTH, displayPaneWrapper, 0, SpringLayout.NORTH, getContentPane());
+        layout.putConstraint(SpringLayout.SOUTH, displayPaneWrapper, 0, SpringLayout.SOUTH, getContentPane());
 
+        // tool pane layout
         toolPaneLayout.putConstraint(SpringLayout.NORTH, histogramWrapper, 0, SpringLayout.NORTH, toolPane);
         toolPaneLayout.putConstraint(SpringLayout.SOUTH, histogramWrapper, HISTOGRAM_HEIGHT + ADJUSTMENT_INPUT_HEIGHT, SpringLayout.NORTH, histogramWrapper);
         toolPaneLayout.putConstraint(SpringLayout.WEST, histogramWrapper, 0, SpringLayout.WEST, toolPane);
         toolPaneLayout.putConstraint(SpringLayout.EAST, histogramWrapper, -0, SpringLayout.EAST, toolPane);
+
         toolPaneLayout.putConstraint(SpringLayout.NORTH, cordWrapper, 0, SpringLayout.SOUTH, histogramWrapper);
         toolPaneLayout.putConstraint(SpringLayout.WEST, cordWrapper, 0, SpringLayout.WEST, toolPane);
         toolPaneLayout.putConstraint(SpringLayout.EAST, cordWrapper, -0, SpringLayout.EAST, toolPane);
+
+        toolPaneLayout.putConstraint(SpringLayout.NORTH, maskWrapper, 0,  SpringLayout.SOUTH, cordWrapper);
+        toolPaneLayout.putConstraint(SpringLayout.WEST, maskWrapper, 0, SpringLayout.WEST, toolPane);
+        toolPaneLayout.putConstraint(SpringLayout.EAST, maskWrapper, -0, SpringLayout.EAST, toolPane);
+        toolPaneLayout.putConstraint(SpringLayout.SOUTH, maskWrapper, 0, SpringLayout.SOUTH, toolPane);
 
         lblCordX.setBounds(5, 0, 20, 30);
         txtCordX.setBounds(25, 2, 50, 28);
@@ -266,28 +377,31 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         lblMaskBelong.setBounds(122, 0, 40, 30);
         txtMaskBelong.setBounds(167, 2, 68, 28);
 
-        // add listeners
-        canvas00.addLayerChangeListener(scrollBar00);
-        scrollBar00.addAdjustmentListener(canvas00);
-        canvas01.addLayerChangeListener(scrollBar01);
-        scrollBar01.addAdjustmentListener(canvas01);
-        canvas10.addLayerChangeListener(scrollBar10);
-        scrollBar10.addAdjustmentListener(canvas10);
+    /* === LISTENERS === */
 
-        canvas00.bindAxisTo(canvas10, canvas01);
-        canvas01.bindAxisTo(canvas00, canvas10);
-        canvas10.bindAxisTo(canvas00, canvas01);
+        canvas00.addLayerChangeListener(this);
+        canvas01.addLayerChangeListener(this);
+        canvas10.addLayerChangeListener(this);
+        scrollBar00.addAdjustmentListener(this);
+        scrollBar01.addAdjustmentListener(this);
+        scrollBar10.addAdjustmentListener(this);
 
         histogram.addMouseListener(this);
         histogram.addMouseMotionListener(this);
         txtWindowSize.addMouseListener(this);
         txtWindowPosition.addMouseListener(this);
-    }
 
-    /** mhd Information data */
-    MHDInfo mhdInfo;
-    /** raw image array data */
-    RawData rawData;
+        lstMask.addMouseListener(this);
+
+        editMenuItemThresh.addActionListener(this);
+        editMenuItemGrow.addActionListener(this);
+        editMenuItemRename.addActionListener(this);
+        editMenuItemRecolor.addActionListener(this);
+        editMenuItemClear.addActionListener(this);
+        maskMenuItemAdd.addActionListener(this);
+        maskMenuItemDuplicate.addActionListener(this);
+        maskMenuItemDelete.addActionListener(this);
+    }
 
     @SuppressWarnings("SuspiciousNameCombination")
     public void onDataLoaded() {
@@ -303,9 +417,12 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         // load ctWindow
         ctWindow = new CTWindow(rawData.lowestValue, rawData.highestValue);
         // canvas data init must be done after scrollbars'
-        canvas00.loadImageData(rawData.topSlice, mhdInfo.x, mhdInfo.y, ctWindow);
-        canvas01.loadImageData(rawData.rightSlice, mhdInfo.y, mhdInfo.z, ctWindow);
-        canvas10.loadImageData(rawData.frontSlice, mhdInfo.x, mhdInfo.z, ctWindow);
+        canvas00.loadImageData(rawData.bottomSlice, mhdInfo.x, mhdInfo.y, ctWindow, GMICanvas.ORIENT_BOTTOM);
+        canvas01.loadImageData(rawData.rightSlice, mhdInfo.y, mhdInfo.z, ctWindow, GMICanvas.ORIENT_RIGHT);
+        canvas10.loadImageData(rawData.frontSlice, mhdInfo.x, mhdInfo.z, ctWindow, GMICanvas.ORIENT_FRONT);
+        canvas00.setMaskList(mask3DList);
+        canvas01.setMaskList(mask3DList);
+        canvas10.setMaskList(mask3DList);
         // load histogram
         histogram.loadHist(rawData.histogram, ctWindow);
         txtWindowSize.setText("" + (rawData.highestValue - rawData.lowestValue));
@@ -313,6 +430,10 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         // TODO Optimize resizing
         setSize(new Dimension(mhdInfo.x * 3, mhdInfo.y * 2));
         setLocationRelativeTo(null);
+        // update canvas status
+        scrollBar00.setValue(canvas00.getCurrentLayer());
+        scrollBar01.setValue(canvas01.getCurrentLayer());
+        scrollBar10.setValue(canvas10.getCurrentLayer());
         repaint();
     }
 
@@ -326,6 +447,7 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
                 mhdInfo = GMILoader.loadMHDFile(new File(DEBUG_MHD_PATH));
                 mhdInfo.debugOutput();
                 rawData = GMILoader.loadRawFromMHD(mhdInfo);
+                mask3DList = new LinkedList<>();
                 onDataLoaded();
             } catch (IOException ex) {
                 ex.printStackTrace();
@@ -334,9 +456,13 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         thread.start();
     }
 
+    /** the index when menu popups */
+    private int currentListIndex;
+
     @Override
     public void mouseClicked(MouseEvent e) {
         if(e.getSource() == txtWindowSize) {
+            // Double click to change window size
             if (e.getClickCount() >= 2 && e.getButton() == MouseEvent.BUTTON1) {
                 String winSizeStr = JOptionPane.showInputDialog(this,
                         "请输入窗宽(" + CTWindow.MIN_WINDOW_SIZE + "~" + CTWindow.MAX_WINDOW_SIZE + ")：",
@@ -352,6 +478,7 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
                 }
             }
         } else if (e.getSource() == txtWindowPosition) {
+            // Double click to change window position
             if(e.getClickCount() >= 2 && e.getButton() == MouseEvent.BUTTON1) {
                 String winPositionStr = JOptionPane.showInputDialog(this,
                         "请输入窗位("
@@ -368,6 +495,26 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
                     // ignored
                 }
             }
+        } else if(e.getSource() == lstMask) {
+            // Right click popup menu
+            if(e.getButton() == MouseEvent.BUTTON3) {
+                // right click
+                if (maskListModel.isEmpty()
+                        || !lstMask.getCellBounds(0, maskListModel.getSize() - 1).contains(e.getPoint())) {
+                    // outside the cells or list empty
+                    maskMenuEditMenu.setEnabled(false);
+                    maskMenuItemDuplicate.setEnabled(false);
+                    maskMenuItemDelete.setEnabled(false);
+                    currentListIndex = -1;
+                } else {
+                    // inside the cells
+                    maskMenuEditMenu.setEnabled(true);
+                    maskMenuItemDuplicate.setEnabled(true);
+                    maskMenuItemDelete.setEnabled(true);
+                    currentListIndex = lstMask.locationToIndex(e.getPoint());
+                }
+                maskMenu.show(lstMask, e.getX(), e.getY());
+            }
         }
     }
 
@@ -378,6 +525,14 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         canvas00.updateOnCtWindowChange();
         canvas01.updateOnCtWindowChange();
         canvas10.updateOnCtWindowChange();
+        repaint();
+    }
+
+    /** update layer data when mask changes */
+    public void updateOnMaskChanged() {
+        canvas00.updateOnMaskChange();
+        canvas01.updateOnMaskChange();
+        canvas10.updateOnMaskChange();
         repaint();
     }
 
@@ -420,7 +575,7 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
     private int lastMouseX1;
     private int lastMouseX3;
 
-    /** spped up the drag-change rate by ratio */
+    /** speed up the drag-change rate by ratio */
     private final static int DRAG_RATIO = 2;
 
     @Override
@@ -445,5 +600,83 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
     @Override
     public void mouseMoved(MouseEvent e) {
         // skip
+    }
+
+    @Override
+    public void onLayerChanged(LayerChangeEvent event) {
+        int layer = event.getLayer();
+        if(event.getEventSource() == canvas00) {
+            if(event.getType() == LayerChangeEvent.TYPE_CORD_X) {
+                scrollBar01.setValue(layer);
+                canvas10.changeAxisX(layer);
+            } else if(event.getType() == LayerChangeEvent.TYPE_CORD_Y) {
+                scrollBar10.setValue(layer);
+                canvas01.changeAxisX(layer);
+            } else if(event.getType() == LayerChangeEvent.TYPE_CORD_Z) {
+                scrollBar00.setValue(layer);
+//                canvas01.changeAxisY(mhdInfo.z - layer);
+//                canvas10.changeAxisY(mhdInfo.z - layer);
+            }
+        } else if(event.getEventSource() == canvas01) {
+            if(event.getType() == LayerChangeEvent.TYPE_CORD_X) {
+                scrollBar10.setValue(mhdInfo.y - layer);
+                canvas00.changeAxisY(mhdInfo.y - 1 - layer);
+            } else if(event.getType() == LayerChangeEvent.TYPE_CORD_Y) {
+                scrollBar00.setValue(mhdInfo.z - layer);
+                canvas10.changeAxisY(layer);
+            } else if(event.getType() == LayerChangeEvent.TYPE_CORD_Z) {
+                scrollBar01.setValue(layer);
+//                canvas10.changeAxisX(layer);
+//                canvas00.changeAxisX(layer);
+            }
+        } else if(event.getEventSource() == canvas10) {
+            if(event.getType() == LayerChangeEvent.TYPE_CORD_X) {
+                scrollBar01.setValue(layer);
+                canvas00.changeAxisX(layer);
+            } else if(event.getType() == LayerChangeEvent.TYPE_CORD_Y) {
+                scrollBar00.setValue(mhdInfo.z - 1 - layer);
+                canvas01.changeAxisY(layer);
+            } else if(event.getType() == LayerChangeEvent.TYPE_CORD_Z) {
+                scrollBar10.setValue(layer);
+//                canvas01.changeAxisX(mhdInfo.y - 1 - layer);
+//                canvas00.changeAxisY(layer);
+            }
+        }
+    }
+
+    @Override
+    public void adjustmentValueChanged(AdjustmentEvent e) {
+        int layer = e.getValue();
+        if(e.getSource() == scrollBar00) {
+            canvas00.changeLayer(layer);
+            canvas01.changeAxisY(mhdInfo.z - 1 - layer);
+            canvas10.changeAxisY(mhdInfo.z - 1 - layer);
+            txtCordZ.setText("" + layer);
+        } else if(e.getSource() == scrollBar01) {
+            canvas01.changeLayer(e.getValue());
+            canvas10.changeAxisX(layer);
+            canvas00.changeAxisX(layer);
+            txtCordX.setText("" + layer);
+        } else if(e.getSource() == scrollBar10) {
+            canvas10.changeLayer(e.getValue());
+            canvas01.changeAxisX(mhdInfo.y - 1 - layer);
+            canvas00.changeAxisY(layer);
+            txtCordY.setText("" + layer);
+        }
+        txtIntensity.setText("" + canvas00.getCurrentValue());
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if(e.getSource() == maskMenuItemAdd) {
+            GMIMask3D mask = new GMIMask3D(mhdInfo.x, mhdInfo.y, mhdInfo.z);
+            mask3DList.add(mask);
+            maskListModel.addElement(mask);
+        } else if(e.getSource() == editMenuItemThresh) {
+            GMIThreshDialog dialog = new GMIThreshDialog(this, maskListModel.elementAt(currentListIndex), rawData, mhdInfo,
+                    ctWindow.getWinLow(), ctWindow.getWinHigh(), rawData.histogram);
+            boolean isConfirmed = dialog.popup(canvas01.getCurrentLayer(), canvas10.getCurrentLayer(), canvas00.getCurrentLayer());
+            updateOnMaskChanged();
+        }
     }
 }
