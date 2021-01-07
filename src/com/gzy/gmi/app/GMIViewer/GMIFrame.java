@@ -1,10 +1,10 @@
 package com.gzy.gmi.app.GMIViewer;
 
+import com.gzy.gmi.app.GMIViewer.widgets.GMICanvas;
 import com.gzy.gmi.app.GMIViewer.widgets.GMIHistogram;
 import com.gzy.gmi.app.GMIViewer.widgets.GMIMaskListCellRenderer;
 import com.gzy.gmi.app.GMIViewer.widgets.GMIScrollBar;
 import com.gzy.gmi.app.GMIViewer.widgets.GMIScrollBarUI;
-import com.gzy.gmi.app.GMIViewer.widgets.GMIThreshDialog;
 import com.gzy.gmi.app.GMIViewer.widgets.LayerChangeEvent;
 import com.gzy.gmi.app.GMIViewer.widgets.LayerChangeListener;
 import com.gzy.gmi.util.CTWindow;
@@ -15,6 +15,7 @@ import com.gzy.gmi.util.RawData;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
+import javax.swing.JColorChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -46,6 +47,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * main frame of GMIViewer
@@ -69,7 +71,7 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
     private JPanel toolPane;
     private JPanel displayPaneWrapper, displayPane;
     private GMIScrollBar scrollBar00, scrollBar01, scrollBar10, scrollBar11;
-    private GMICanvas canvas00, canvas01, canvas10, canvas11;
+    GMICanvas canvas00, canvas01, canvas10, canvas11;
     private GMIHistogram histogram;
     private JTextField txtWindowSize, txtWindowPosition;
     private final JLabel lblWindowSize = new JLabel("窗宽:");
@@ -91,7 +93,7 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
     private final JMenuItem editMenuItemRecolor = new JMenuItem("修改颜色");
     private final JMenuItem editMenuItemClear = new JMenuItem("清空");
     private final JMenuItem maskMenuItemAdd = new JMenuItem("新建遮罩");
-    private final JMenuItem maskMenuItemDuplicate = new JMenuItem("复制");
+    private final JMenuItem maskMenuItemDuplicate = new JMenuItem("创建副本");
     private final JMenuItem maskMenuItemDelete = new JMenuItem("删除");
 
     private static final int WINDOW_MIN_WIDTH = 700;
@@ -103,6 +105,7 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
     private static final int ADJUSTMENT_INPUT_HEIGHT = 25;
 
     private static final Font GLOBAL_FONT = new Font("等线", Font.BOLD, 16);
+    private static final Font GLOBAL_FONT_TINY = new Font("等线", Font.BOLD, 12);
 
     private CTWindow ctWindow;
 
@@ -212,8 +215,8 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         txtIntensity.setFont(GLOBAL_FONT);
         txtIntensity.setEditable(false);
         txtMaskBelong = new JTextField();
-        txtMaskBelong.setHorizontalAlignment(SwingConstants.RIGHT);
-        txtMaskBelong.setFont(GLOBAL_FONT);
+        txtMaskBelong.setHorizontalAlignment(SwingConstants.LEFT);
+        txtMaskBelong.setFont(GLOBAL_FONT_TINY);
         txtMaskBelong.setEditable(false);
         lblIntensity.setFont(GLOBAL_FONT);
         lblMaskBelong.setFont(GLOBAL_FONT);
@@ -332,7 +335,7 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
 
         JPanel canvasWrapper11 = new JPanel();
         canvasWrapper11.setBackground(Color.BLACK);
-        canvasWrapper11.setBorder(BorderFactory.createTitledBorder(null, "???",
+        canvasWrapper11.setBorder(BorderFactory.createTitledBorder(null, "3D(待实现)",
                 TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, null, Color.WHITE));
         canvasWrapper11.setLayout(new BorderLayout());
         canvasWrapper11.add(canvas11);
@@ -457,7 +460,7 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
     }
 
     /** the index when menu popups */
-    private int currentListIndex;
+    private int currentMaskListIndex;
 
     @Override
     public void mouseClicked(MouseEvent e) {
@@ -499,21 +502,26 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
             // Right click popup menu
             if(e.getButton() == MouseEvent.BUTTON3) {
                 // right click
-                if (maskListModel.isEmpty()
-                        || !lstMask.getCellBounds(0, maskListModel.getSize() - 1).contains(e.getPoint())) {
+                if (maskListModel.isEmpty() || !lstMask.getCellBounds(0, maskListModel.getSize() - 1).contains(e.getPoint())) {
                     // outside the cells or list empty
                     maskMenuEditMenu.setEnabled(false);
                     maskMenuItemDuplicate.setEnabled(false);
                     maskMenuItemDelete.setEnabled(false);
-                    currentListIndex = -1;
+                    currentMaskListIndex = -1;
                 } else {
                     // inside the cells
                     maskMenuEditMenu.setEnabled(true);
                     maskMenuItemDuplicate.setEnabled(true);
                     maskMenuItemDelete.setEnabled(true);
-                    currentListIndex = lstMask.locationToIndex(e.getPoint());
+                    currentMaskListIndex = lstMask.locationToIndex(e.getPoint());
                 }
                 maskMenu.show(lstMask, e.getX(), e.getY());
+            }
+            else if(e.getButton() == MouseEvent.BUTTON1 && e.getClickCount() >= 2) {
+                if(!maskListModel.isEmpty() && lstMask.getCellBounds(0, maskListModel.getSize() - 1).contains(e.getPoint())) {
+                    currentMaskListIndex = lstMask.locationToIndex(e.getPoint());
+                    renameMask();
+                }
             }
         }
     }
@@ -533,6 +541,7 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         canvas00.updateOnMaskChange();
         canvas01.updateOnMaskChange();
         canvas10.updateOnMaskChange();
+        txtMaskBelong.setText(Optional.ofNullable(canvas00.getCurrentMask()).map(GMIMask3D::getMaskName).orElse("无"));
         repaint();
     }
 
@@ -619,10 +628,10 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
             }
         } else if(event.getEventSource() == canvas01) {
             if(event.getType() == LayerChangeEvent.TYPE_CORD_X) {
-                scrollBar10.setValue(mhdInfo.y - layer);
-                canvas00.changeAxisY(mhdInfo.y - 1 - layer);
+                scrollBar10.setValue(mhdInfo.y - 1 - layer);
+                canvas00.changeAxisY(layer);
             } else if(event.getType() == LayerChangeEvent.TYPE_CORD_Y) {
-                scrollBar00.setValue(mhdInfo.z - layer);
+                scrollBar00.setValue(mhdInfo.z - 1 - layer);
                 canvas10.changeAxisY(layer);
             } else if(event.getType() == LayerChangeEvent.TYPE_CORD_Z) {
                 scrollBar01.setValue(layer);
@@ -664,19 +673,92 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
             txtCordY.setText("" + layer);
         }
         txtIntensity.setText("" + canvas00.getCurrentValue());
+        txtMaskBelong.setText(Optional.ofNullable(canvas00.getCurrentMask()).map(GMIMask3D::getMaskName).orElse("无"));
+        txtMaskBelong.setBackground(Optional.ofNullable(canvas00.getCurrentMask())
+                .map(GMIMask3D::getColor).map(Color::new).orElse(txtIntensity.getBackground()));
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
         if(e.getSource() == maskMenuItemAdd) {
             GMIMask3D mask = new GMIMask3D(mhdInfo.x, mhdInfo.y, mhdInfo.z);
-            mask3DList.add(mask);
-            maskListModel.addElement(mask);
-        } else if(e.getSource() == editMenuItemThresh) {
-            GMIThreshDialog dialog = new GMIThreshDialog(this, maskListModel.elementAt(currentListIndex), rawData, mhdInfo,
+            addMask3DToList(mask);
+        }
+        else if(e.getSource() == editMenuItemThresh) {
+            GMIThreshDialog dialog = new GMIThreshDialog(this, maskListModel.elementAt(currentMaskListIndex), rawData, mhdInfo,
                     ctWindow.getWinLow(), ctWindow.getWinHigh(), rawData.histogram);
             boolean isConfirmed = dialog.popup(canvas01.getCurrentLayer(), canvas10.getCurrentLayer(), canvas00.getCurrentLayer());
             updateOnMaskChanged();
         }
+        else if(e.getSource() == editMenuItemGrow) {
+            GMIGrowDialog dialog = new GMIGrowDialog(this, mhdInfo);
+            lstMask.removeMouseListener(this);
+            canvas00.startRegionGrowMode();
+            canvas01.startRegionGrowMode();
+            canvas10.startRegionGrowMode();
+            scrollBar00.addAdjustmentListener(dialog);
+            scrollBar01.addAdjustmentListener(dialog);
+            scrollBar10.addAdjustmentListener(dialog);
+            dialog.popup(this::growDialogCallback);
+        }
+        else if(e.getSource() == maskMenuItemDelete) {
+            int opt = JOptionPane.showConfirmDialog(this, "确认要删除图层吗？这一操作不可逆。", "删除图层", JOptionPane.OK_CANCEL_OPTION);
+            if(opt == JOptionPane.OK_OPTION) {
+                removeMask3DFromList(maskListModel.elementAt(currentMaskListIndex));
+            }
+        }
+        else if(e.getSource() == maskMenuItemDuplicate) {
+            GMIMask3D mask3D = maskListModel.elementAt(currentMaskListIndex).createCopy();
+            addMask3DToList(mask3D);
+        }
+        else if(e.getSource() == editMenuItemRename) {
+            renameMask();
+        }
+        else if(e.getSource() == editMenuItemRecolor) {
+            Color oldColor = new Color(maskListModel.elementAt(currentMaskListIndex).getColor());
+            Color newColor = JColorChooser.showDialog(this, "修改图层颜色", oldColor);
+            maskListModel.elementAt(currentMaskListIndex).setColor(newColor.getRGB());
+            updateOnMaskChanged();
+        }
+        else if(e.getSource() == editMenuItemClear) {
+            int opt = JOptionPane.showConfirmDialog(this, "确认要清空图层吗？", "清空", JOptionPane.OK_CANCEL_OPTION);
+            if(opt == JOptionPane.OK_OPTION) {
+                maskListModel.elementAt(currentMaskListIndex).clearMask();
+                updateOnMaskChanged();
+            }
+        }
+    }
+
+    /** rename mask */
+    private void renameMask() {
+        String newMaskName = JOptionPane.showInputDialog(this, "请输入新的名称", "重命名", JOptionPane.PLAIN_MESSAGE);
+        if(newMaskName != null && newMaskName.trim().length() != 0) {
+            maskListModel.elementAt(currentMaskListIndex).setMaskName(newMaskName);
+        }
+    }
+
+    public void growDialogCallback(GMIGrowDialog dialog) {
+        lstMask.addMouseListener(this);
+        canvas00.endRegionGrowMode();
+        canvas01.endRegionGrowMode();
+        canvas10.endRegionGrowMode();
+        scrollBar00.addAdjustmentListener(dialog);
+        scrollBar01.addAdjustmentListener(dialog);
+        scrollBar10.addAdjustmentListener(dialog);
+        if(dialog.confirmed) {
+            addMask3DToList(dialog.mask3D);
+        }
+    }
+
+    private synchronized void addMask3DToList(GMIMask3D mask3D) {
+        maskListModel.addElement(mask3D);
+        mask3DList.add(mask3D);
+        updateOnMaskChanged();
+    }
+
+    private synchronized void removeMask3DFromList(GMIMask3D mask3D) {
+        maskListModel.removeElement(mask3D);
+        mask3DList.remove(mask3D);
+        updateOnMaskChanged();
     }
 }
