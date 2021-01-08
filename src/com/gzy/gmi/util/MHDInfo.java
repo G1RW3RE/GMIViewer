@@ -67,7 +67,7 @@ public class MHDInfo {
         return properties.getProperty(key);
     }
 
-    /** DEBUG */
+    /** FOR DEBUGGING */
     public void debugOutput() {
         System.out.println("------------------------DEBUG------------------------");
         Enumeration<?> enumeration = properties.propertyNames();

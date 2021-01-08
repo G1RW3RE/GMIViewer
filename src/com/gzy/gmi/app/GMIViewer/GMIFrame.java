@@ -16,10 +16,12 @@ import com.gzy.gmi.util.RawData;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
 import javax.swing.JColorChooser;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JMenu;
+import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -29,13 +31,16 @@ import javax.swing.JTextField;
 import javax.swing.Spring;
 import javax.swing.SpringLayout;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import javax.swing.border.TitledBorder;
+import javax.swing.filechooser.FileFilter;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.AdjustmentEvent;
@@ -63,9 +68,36 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         setMinimumSize(new Dimension(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT));
 
         initComponents();
-        loadData();
-
+        initMenuBar();
+        deactivateAllFunctions();
         setVisible(true);
+    }
+
+    private JMenuItem fileMenuItemOpen;
+    private JMenuItem fileMenuItemExit;
+
+    private void initMenuBar() {
+        JMenuBar jMenuBar = new JMenuBar();
+        JMenu menuFile = new JMenu("文件");
+        menuFile.setPreferredSize(new Dimension(50, 25));
+        menuFile.setFont(GLOBAL_FONT);
+        menuFile.setHorizontalAlignment(SwingConstants.CENTER);
+
+        fileMenuItemOpen = new JMenuItem("打开 ...");
+        fileMenuItemExit = new JMenuItem("退出");
+        fileMenuItemOpen.setFont(GLOBAL_FONT);
+        fileMenuItemExit.setFont(GLOBAL_FONT);
+        fileMenuItemOpen.setPreferredSize(new Dimension(200, 30));
+        fileMenuItemExit.setPreferredSize(new Dimension(200, 30));
+
+        menuFile.add(fileMenuItemOpen);
+        menuFile.addSeparator();
+        menuFile.add(fileMenuItemExit);
+        jMenuBar.add(menuFile);
+        setJMenuBar(jMenuBar);
+
+        fileMenuItemOpen.addActionListener(this);
+        fileMenuItemExit.addActionListener(this);
     }
 
     private JPanel toolPane;
@@ -434,29 +466,71 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         setSize(new Dimension(mhdInfo.x * 3, mhdInfo.y * 2));
         setLocationRelativeTo(null);
         // update canvas status
+        activateAllFunctions();
         scrollBar00.setValue(canvas00.getCurrentLayer());
         scrollBar01.setValue(canvas01.getCurrentLayer());
         scrollBar10.setValue(canvas10.getCurrentLayer());
         repaint();
     }
 
-    // TODO DEBUGGING
-    private final static String DEBUG_MHD_PATH = "E:\\GLORIA_WORKSPACE\\task\\task1101_ps\\WANG_DIAN_TANG_1\\image.mhd";
-//    private final static String DEBUG_MHD_PATH = "C:\\Users\\Administrator\\Desktop\\a.mhd";
-    // TODO DEBUGGING
-    public void loadData() {
-        Thread thread = new Thread(() -> {
+//    public void loadData() {
+//        Thread thread = new Thread(() -> {
+//            try {
+//                mhdInfo = GMILoader.loadMHDFile(new File(DEBUG_MHD_PATH));
+//                mhdInfo.debugOutput();
+//                rawData = GMILoader.loadRawFromMHD(mhdInfo);
+//                mask3DList = new LinkedList<>();
+//                onDataLoaded();
+//            } catch (IOException ex) {
+//                ex.printStackTrace();
+//            }
+//        });
+//        thread.start();
+//    }
+    public void loadFile(File file) {
+        SwingUtilities.invokeLater(() -> {
             try {
-                mhdInfo = GMILoader.loadMHDFile(new File(DEBUG_MHD_PATH));
+                deactivateAllFunctions();
+                mhdInfo = GMILoader.loadMHDFile(file);
                 mhdInfo.debugOutput();
                 rawData = GMILoader.loadRawFromMHD(mhdInfo);
                 mask3DList = new LinkedList<>();
                 onDataLoaded();
-            } catch (IOException ex) {
-                ex.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "打开文件失失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
             }
         });
-        thread.start();
+    }
+
+    /** invoke to stop any response of program when no file loaded (or other circumstances) */
+    private void deactivateAllFunctions() {
+        histogram.removeMouseListener(this);
+        histogram.removeMouseMotionListener(this);
+        txtWindowSize.removeMouseListener(this);
+        txtWindowPosition.removeMouseListener(this);
+        lstMask.removeMouseListener(this);
+        canvas00.removeLayerChangeListener(this);
+        canvas01.removeLayerChangeListener(this);
+        canvas10.removeLayerChangeListener(this);
+        scrollBar00.removeAdjustmentListener(this);
+        scrollBar01.removeAdjustmentListener(this);
+        scrollBar10.removeAdjustmentListener(this);
+    }
+
+    /** invoke to activate the program */
+    private void activateAllFunctions() {
+        histogram.addMouseListener(this);
+        histogram.addMouseMotionListener(this);
+        txtWindowSize.addMouseListener(this);
+        txtWindowPosition.addMouseListener(this);
+        lstMask.addMouseListener(this);
+        canvas00.addLayerChangeListener(this);
+        canvas01.addLayerChangeListener(this);
+        canvas10.addLayerChangeListener(this);
+        scrollBar00.addAdjustmentListener(this);
+        scrollBar01.addAdjustmentListener(this);
+        scrollBar10.addAdjustmentListener(this);
     }
 
     /** the index when menu popups */
@@ -517,10 +591,25 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
                 }
                 maskMenu.show(lstMask, e.getX(), e.getY());
             }
-            else if(e.getButton() == MouseEvent.BUTTON1 && e.getClickCount() >= 2) {
+            // triple click on cell, rename
+            else if(e.getButton() == MouseEvent.BUTTON1 && e.getClickCount() >= 3) {
                 if(!maskListModel.isEmpty() && lstMask.getCellBounds(0, maskListModel.getSize() - 1).contains(e.getPoint())) {
                     currentMaskListIndex = lstMask.locationToIndex(e.getPoint());
                     renameMask();
+                }
+            }
+            // single click on cell
+            else if(e.getButton() == MouseEvent.BUTTON1 && e.getClickCount() == 1) {
+                if(!maskListModel.isEmpty() && lstMask.getCellBounds(0, maskListModel.getSize() - 1).contains(e.getPoint())) {
+                    currentMaskListIndex = lstMask.locationToIndex(e.getPoint());
+                    // TODO
+                    Rectangle bounds = lstMask.getCellBounds(currentMaskListIndex, currentMaskListIndex);
+                    Rectangle eyeBounds = new Rectangle(bounds.x + bounds.width - 40, bounds.y + bounds.height / 2 - 10, 20, 20);
+                    if(eyeBounds.contains(e.getPoint())) {
+                        maskListModel.getElementAt(currentMaskListIndex).toggleVisible();
+                        lstMask.repaint();
+                        updateOnMaskChanged();
+                    }
                 }
             }
         }
@@ -628,7 +717,7 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
             }
         } else if(event.getEventSource() == canvas01) {
             if(event.getType() == LayerChangeEvent.TYPE_CORD_X) {
-                scrollBar10.setValue(mhdInfo.y - 1 - layer);
+                scrollBar10.setValue(layer);
                 canvas00.changeAxisY(layer);
             } else if(event.getType() == LayerChangeEvent.TYPE_CORD_Y) {
                 scrollBar00.setValue(mhdInfo.z - 1 - layer);
@@ -668,7 +757,7 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
             txtCordX.setText("" + layer);
         } else if(e.getSource() == scrollBar10) {
             canvas10.changeLayer(e.getValue());
-            canvas01.changeAxisX(mhdInfo.y - 1 - layer);
+            canvas01.changeAxisX(layer);
             canvas00.changeAxisY(layer);
             txtCordY.setText("" + layer);
         }
@@ -727,6 +816,39 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
                 updateOnMaskChanged();
             }
         }
+
+        // menu bar
+        else if(e.getSource() == fileMenuItemOpen) {
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+            fileChooser.setFileFilter(new FileFilter() {
+                @Override
+                public boolean accept(File f) {
+                    if(f.isDirectory()) {
+                        return true;
+                    }
+                    if(f.getName().contains(".")) {
+                        String suffix = f.getName().substring(f.getName().lastIndexOf(".") + 1);
+                        return suffix.length() != 0 && suffix.toLowerCase().equals("mhd");
+                    }
+                    return false;
+                }
+
+                @Override
+                public String getDescription() {
+                    return "MHD文件(*.mhd)";
+                }
+            });
+            fileChooser.showDialog(this, "选择文件");
+            File file = fileChooser.getSelectedFile();
+            if(file != null) {
+                loadFile(file);
+            }
+        }
+        else if(e.getSource() == fileMenuItemExit) {
+            // TODO Save something?
+            this.dispose();
+        }
     }
 
     /** rename mask */
@@ -758,7 +880,9 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
 
     private synchronized void removeMask3DFromList(GMIMask3D mask3D) {
         maskListModel.removeElement(mask3D);
+        maskListModel.trimToSize();
         mask3DList.remove(mask3D);
+        SwingUtilities.invokeLater(System::gc);
         updateOnMaskChanged();
     }
 }

@@ -186,4 +186,11 @@ public class GMIMask3D {
         }
         return maskNew;
     }
+
+    /** if the mask visible */
+    public boolean visible = true;
+
+    public void toggleVisible() {
+        visible = !visible;
+    }
 }

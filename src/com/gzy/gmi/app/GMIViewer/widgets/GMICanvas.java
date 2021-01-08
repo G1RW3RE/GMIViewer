@@ -157,31 +157,37 @@ public class GMICanvas extends JPanel
         if (!maskList.isEmpty()) {
             if (ORIENT_BOTTOM.equals(orientation)) {
                 for (GMIMask3D mask : maskList) {
-                    iMask = mask.bottomSlice[currentLayer];
-                    color = mask.getColor() | MASK_ALPHA;
-                    for (int i = 0; i < len; i++) {
-                        if (iMask[i]) {
-                            data[i] = color;
+                    if (mask.visible) {
+                        iMask = mask.bottomSlice[currentLayer];
+                        color = mask.getColor() | MASK_ALPHA;
+                        for (int i = 0; i < len; i++) {
+                            if (iMask[i]) {
+                                data[i] = color;
+                            }
                         }
                     }
                 }
             } else if (ORIENT_FRONT.equals(orientation)) {
                 for (GMIMask3D mask : maskList) {
-                    iMask = mask.frontSlice[currentLayer];
-                    color = mask.getColor() | MASK_ALPHA;
-                    for (int i = 0; i < len; i++) {
-                        if (iMask[i]) {
-                            data[i] = color;
+                    if (mask.visible) {
+                        iMask = mask.frontSlice[currentLayer];
+                        color = mask.getColor() | MASK_ALPHA;
+                        for (int i = 0; i < len; i++) {
+                            if (iMask[i]) {
+                                data[i] = color;
+                            }
                         }
                     }
                 }
             } else if (ORIENT_RIGHT.equals(orientation)) {
                 for (GMIMask3D mask : maskList) {
-                    iMask = mask.rightSlice[currentLayer];
-                    color = mask.getColor() | MASK_ALPHA;
-                    for (int i = 0; i < len; i++) {
-                        if (iMask[i]) {
-                            data[i] = color;
+                    if(mask.visible) {
+                        iMask = mask.rightSlice[currentLayer];
+                        color = mask.getColor() | MASK_ALPHA;
+                        for (int i = 0; i < len; i++) {
+                            if (iMask[i]) {
+                                data[i] = color;
+                            }
                         }
                     }
                 }
@@ -335,31 +341,35 @@ public class GMICanvas extends JPanel
 
     @Override
     public void mouseWheelMoved(MouseWheelEvent e) {
-        int nextLayer = currentLayer + e.getUnitsToScroll() / 3;
-        if(nextLayer < 0) {
-            currentLayer = 0;
-        } else if(nextLayer > maxLayerIndex) {
-            nextLayer = maxLayerIndex;
+        if (imgData != null) {
+            int nextLayer = currentLayer + e.getUnitsToScroll() / 3;
+            if (nextLayer < 0) {
+                currentLayer = 0;
+            } else if (nextLayer > maxLayerIndex) {
+                nextLayer = maxLayerIndex;
+            }
+            changeLayer(nextLayer);
+            notifyLayerChangeListeners(new LayerChangeEvent(this, nextLayer, LayerChangeEvent.TYPE_CORD_Z));
         }
-        changeLayer(nextLayer);
-        notifyLayerChangeListeners(new LayerChangeEvent(this, nextLayer, LayerChangeEvent.TYPE_CORD_Z));
     }
 
     @Override
     public void mouseDragged(MouseEvent e) {
-        int x = e.getX(), y = e.getY();
-        x = Math.min(visX + visWidth, Math.max(visX, x));
-        y = Math.min(visY + visHeight, Math.max(visY, y));
-        // inside visBox
-        x = (x - visX) * imgWidth / visWidth;
-        y = (y - visY) * imgHeight / visHeight;
-        x = Math.min(imgWidth - 1, Math.max(0, x));
-        y = Math.min(imgHeight - 1, Math.max(0, y));
-        xAxis = x;
-        yAxis = y;
-        notifyLayerChangeListeners(new LayerChangeEvent(this, x, LayerChangeEvent.TYPE_CORD_X));
-        notifyLayerChangeListeners(new LayerChangeEvent(this, y, LayerChangeEvent.TYPE_CORD_Y));
-        repaint();
+        if(imgData != null) {
+            int x = e.getX(), y = e.getY();
+            x = Math.min(visX + visWidth, Math.max(visX, x));
+            y = Math.min(visY + visHeight, Math.max(visY, y));
+            // inside visBox
+            x = (x - visX) * imgWidth / visWidth;
+            y = (y - visY) * imgHeight / visHeight;
+            x = Math.min(imgWidth - 1, Math.max(0, x));
+            y = Math.min(imgHeight - 1, Math.max(0, y));
+            xAxis = x;
+            yAxis = y;
+            notifyLayerChangeListeners(new LayerChangeEvent(this, x, LayerChangeEvent.TYPE_CORD_X));
+            notifyLayerChangeListeners(new LayerChangeEvent(this, y, LayerChangeEvent.TYPE_CORD_Y));
+            repaint();
+        }
     }
 
     @Override

@@ -70,7 +70,7 @@ public class RawData {
                     rightSlice[i][j + (z - 1 - k) * y] = pixel;
                     frontSlice[j][i + (z - 1 - k) * x] = pixel;
                     // histogram
-                    histogram[pixel - CTWindow.LOWEST_CT_VALUE]++;
+                    histogram[Math.min(pixel - CTWindow.LOWEST_CT_VALUE, CTWindow.MAX_WINDOW_SIZE - 1)]++;
                     mulIndex += multiply;
                 }
             }

@@ -84,7 +84,7 @@ public class GMIHistogram extends JPanel {
         /* scaled array of histogram */
         int[] scaledHistData = new int[width];
         int i, j;
-        for(i = 0; i < histogram.length; i++) {
+        for(i = 0; i < histogram.length && index < scaledHistData.length; i++) {
             highestCount = Math.max(highestCount, histogram[i]);
             if(accIndex >= 1.0f) {
                 scaledHistData[index] += histogram[i];
@@ -99,12 +99,12 @@ public class GMIHistogram extends JPanel {
                 // accIndex < 0
                 accIndex = Math.abs(accIndex);
                 scaledHistData[index] += accIndex * histogram[i];
-                accIndex = ACC;
+                accIndex = ACC - accIndex;
             }
         }
         // height of hist
 //        int maxCount = highestCount * 2 / 3;
-        double maxCount = 1.2 * Math.log(highestCount + 1);
+        double maxCount = 1.5 * Math.log(highestCount + 1);
         int count;
         for(i = 0; i < width; i++) {
 //            count = (int) ((long)scaledHistData[i] * height / maxCount);
