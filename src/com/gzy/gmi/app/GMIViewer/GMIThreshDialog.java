@@ -312,14 +312,17 @@ public class GMIThreshDialog extends JDialog implements MouseMotionListener, Mou
 
     /** update currently displaying mask as preview, undo when quit without submitting */
     private void maskPreview() {
+        int[] bottomSlice = rawData.getBottomSlice(z);
         for (int i = 0; i < mask.bottomSlice[z].length; i++) {
-            mask.bottomSlice[z][i] = (rawData.bottomSlice[z][i] >= ctWindow.getWinLow() && rawData.bottomSlice[z][i] <= ctWindow.getWinHigh());
+            mask.bottomSlice[z][i] = (bottomSlice[i] >= ctWindow.getWinLow() && bottomSlice[i] <= ctWindow.getWinHigh());
         }
-        for (int i = 0; i < mask.rightSlice[x].length; i++) {
-            mask.rightSlice[x][i] = (rawData.rightSlice[x][i] >= ctWindow.getWinLow() && rawData.rightSlice[x][i] <= ctWindow.getWinHigh());
-        }
+        int[] frontSlice = rawData.getFrontSlice(y);
         for (int i = 0; i < mask.frontSlice[y].length; i++) {
-            mask.frontSlice[y][i] = (rawData.frontSlice[y][i] >= ctWindow.getWinLow() && rawData.frontSlice[y][i] <= ctWindow.getWinHigh());
+            mask.frontSlice[y][i] = (frontSlice[i] >= ctWindow.getWinLow() && frontSlice[i] <= ctWindow.getWinHigh());
+        }
+        int[] rightSlice = rawData.getRightSlice(x);
+        for (int i = 0; i < mask.rightSlice[x].length; i++) {
+            mask.rightSlice[x][i] = (rightSlice[i] >= ctWindow.getWinLow() && rightSlice[i] <= ctWindow.getWinHigh());
         }
         // update canvas view
         parent.updateOnMaskChanged();
@@ -327,19 +330,25 @@ public class GMIThreshDialog extends JDialog implements MouseMotionListener, Mou
 
     /** confirm changes, update whole mask */
     private void maskConfirmed() {
+        int[] bottomSlice = new int[dimX * dimY];
         for(int sl = 0; sl < dimZ; sl++) {
             for (int i = 0; i < mask.bottomSlice[z].length; i++) {
-                mask.bottomSlice[sl][i] = (rawData.bottomSlice[sl][i] >= ctWindow.getWinLow() && rawData.bottomSlice[sl][i] <= ctWindow.getWinHigh());
+                bottomSlice = rawData.getBottomSlice(bottomSlice, sl);
+                mask.bottomSlice[sl][i] = (bottomSlice[i] >= ctWindow.getWinLow() && bottomSlice[i] <= ctWindow.getWinHigh());
             }
         }
+        int[] rightSlice = new int[dimY * dimZ];
         for(int sl = 0; sl < dimX; sl++) {
             for (int i = 0; i < mask.rightSlice[x].length; i++) {
-                mask.rightSlice[sl][i] = (rawData.rightSlice[sl][i] >= ctWindow.getWinLow() && rawData.rightSlice[sl][i] <= ctWindow.getWinHigh());
+                rightSlice = rawData.getRightSlice(rightSlice, sl);
+                mask.rightSlice[sl][i] = (rightSlice[i] >= ctWindow.getWinLow() && rightSlice[i] <= ctWindow.getWinHigh());
             }
         }
+        int[] frontSlice = new int[dimX * dimZ];
         for(int sl = 0; sl < dimY; sl++) {
             for (int i = 0; i < mask.frontSlice[y].length; i++) {
-                mask.frontSlice[sl][i] = (rawData.frontSlice[sl][i] >= ctWindow.getWinLow() && rawData.frontSlice[sl][i] <= ctWindow.getWinHigh());
+                frontSlice = rawData.getFrontSlice(frontSlice, sl);
+                mask.frontSlice[sl][i] = (frontSlice[i] >= ctWindow.getWinLow() && frontSlice[i] <= ctWindow.getWinHigh());
             }
         }
     }

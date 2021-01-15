@@ -30,6 +30,7 @@ public class GMILoader {
             byte[] data = new byte[len];
             bufferedInputStream.read(data, 0, len);
             rawData = new RawData(data, x, y, z, dataType);
+            bufferedInputStream.close();
         } else {
             rawData = null;
         }

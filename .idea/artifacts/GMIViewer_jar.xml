@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="GMIViewer:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/GMIViewer_jar</output-path>
+    <root id="archive" name="GMIViewer.jar">
+      <element id="module-output" name="GMIViewer" />
+    </root>
+  </artifact>
+</component>

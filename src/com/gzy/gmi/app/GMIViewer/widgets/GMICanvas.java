@@ -2,6 +2,8 @@ package com.gzy.gmi.app.GMIViewer.widgets;
 
 import com.gzy.gmi.util.CTWindow;
 import com.gzy.gmi.util.GMIMask3D;
+import com.gzy.gmi.util.MHDInfo;
+import com.gzy.gmi.util.RawData;
 
 import javax.swing.JPanel;
 import java.awt.BasicStroke;
@@ -23,7 +25,7 @@ import java.util.List;
 public class GMICanvas extends JPanel
         implements MouseWheelListener, MouseMotionListener, MouseListener, LayerChangeNotifier {
 
-    // TODO better stroke
+    /** Dashed line cross+ */
     private static final BasicStroke DASHED_STROKE = new BasicStroke(1.2f,
             BasicStroke.CAP_BUTT,
             BasicStroke.JOIN_MITER,
@@ -39,14 +41,17 @@ public class GMICanvas extends JPanel
             0.0f);
     private static final int MASK_ALPHA = 0xD0_000000;
 
+    /** raw data object */
+    private RawData rawData;
+
+    /** mhdInfo object */
+    private MHDInfo mhdInfo;
+
     /** width of image slice */
     private int imgWidth;
 
     /** height of image slice */
     private int imgHeight;
-
-    /** raw data of image slices */
-    private int[][] imgData;
 
     /** max index of layers, equals to imgData.length - 1 */
     private int maxLayerIndex;
@@ -63,6 +68,8 @@ public class GMICanvas extends JPanel
     /** CTWindow, controls display */
     private CTWindow ctWindow;
 
+    /** image raw data */
+    private int[] imageData;
     /** displaying image */
     private BufferedImage image;
     /** raster */
@@ -79,9 +86,9 @@ public class GMICanvas extends JPanel
     /** deciding which mask to use */
     private String orientation;
 
-    public final static String ORIENT_BOTTOM = "bottom";
-    public final static String ORIENT_RIGHT = "right";
-    public final static String ORIENT_FRONT = "front";
+    public final static String ORIENT_BOTTOM = RawData.ORIENT_BOTTOM;
+    public final static String ORIENT_RIGHT = RawData.ORIENT_RIGHT;
+    public final static String ORIENT_FRONT = RawData.ORIENT_FRONT;
 
     /** notify when layer x, y, z changes */
     List<LayerChangeListener> layerChangeListenerList;
@@ -95,32 +102,48 @@ public class GMICanvas extends JPanel
     }
 
     /** put data of image slices into this component */
-    public void loadImageData(int[][] data, int width, int height, CTWindow ctWindow, String orientation) {
-        assert data != null;
-        imgData = data;
-        maxLayerIndex = imgData.length - 1;
-        assert width > 0 && height > 0 && width * height == data[0].length;
-        imgWidth = width;
-        imgHeight = height;
-        currentLayer = 0;
-        this.ctWindow = ctWindow;
-        image = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
-        raster = (WritableRaster) image.getData();
-        assert ORIENT_FRONT.equals(orientation) || ORIENT_BOTTOM.equals(orientation) || ORIENT_RIGHT.equals(orientation);
+    @SuppressWarnings("SuspiciousNameCombination")
+    public void loadImageData(RawData rawData, MHDInfo mhdInfo, CTWindow ctWindow, String orientation) {
+        switch (orientation) {
+            case ORIENT_BOTTOM:
+                imgWidth = mhdInfo.x;
+                imgHeight = mhdInfo.y;
+                maxLayerIndex = mhdInfo.z - 1;
+                break;
+            case ORIENT_FRONT:
+                imgWidth = mhdInfo.x;
+                imgHeight = mhdInfo.z;
+                maxLayerIndex = mhdInfo.y - 1;
+                break;
+            case ORIENT_RIGHT:
+                imgWidth = mhdInfo.y;
+                imgHeight  = mhdInfo.z;
+                maxLayerIndex = mhdInfo.x - 1;
+                break;
+            default:
+                throw new IllegalArgumentException();
+        }
+        this.rawData = rawData;
+        this.mhdInfo = mhdInfo;
         this.orientation = orientation;
-        maskImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        this.ctWindow = ctWindow;
+        this.currentLayer = 0;
+        imageData = new int[imgWidth * imgHeight];
+        image = new BufferedImage(imgWidth, imgHeight, BufferedImage.TYPE_BYTE_GRAY);
+        raster = (WritableRaster) image.getData();
+        maskImage = new BufferedImage(imgWidth, imgHeight, BufferedImage.TYPE_INT_ARGB);
         maskRaster = (WritableRaster) maskImage.getData();
         // set initial layer to middle
-        changeLayer(data.length / 2);
+        changeLayer(maxLayerIndex / 2);
     }
 
     /** invoke when trying to change layer */
     public void changeLayer(int layer) {
         if(layer < 0 || layer > maxLayerIndex) { return; }
         if(layer == currentLayer) { return; }
-        if(imgData != null) {
+        if(rawData != null) {
             currentLayer = layer;
-            int[] displayImageData = resolveRaw(imgData[currentLayer]);
+            int[] displayImageData = resolveRaw(rawData.getSlice(imageData, orientation, currentLayer));
             raster.setPixels(0, 0, imgWidth, imgHeight, displayImageData);
             image.setData(raster);
             if(maskList != null && maskList.size() != 0) {
@@ -242,8 +265,8 @@ public class GMICanvas extends JPanel
     }
 
     public int getCurrentValue() {
-        if(imgData != null) {
-            return imgData[currentLayer][xAxis + yAxis * imgWidth];
+        if(rawData != null) {
+            return imageData[xAxis + yAxis * imgWidth];
         } else {
             return 0;
         }
@@ -325,7 +348,7 @@ public class GMICanvas extends JPanel
 
     /** when ctWindow changes, invoke this method */
     public void updateOnCtWindowChange() {
-        int[] displayImageData = resolveRaw(imgData[currentLayer]);
+        int[] displayImageData = resolveRaw(rawData.getSlice(imageData, orientation, currentLayer));
         raster.setPixels(0, 0, imgWidth, imgHeight, displayImageData);
         image.setData(raster);
     }
@@ -341,7 +364,7 @@ public class GMICanvas extends JPanel
 
     @Override
     public void mouseWheelMoved(MouseWheelEvent e) {
-        if (imgData != null) {
+        if (rawData != null) {
             int nextLayer = currentLayer + e.getUnitsToScroll() / 3;
             if (nextLayer < 0) {
                 currentLayer = 0;
@@ -355,7 +378,7 @@ public class GMICanvas extends JPanel
 
     @Override
     public void mouseDragged(MouseEvent e) {
-        if(imgData != null) {
+        if(rawData != null) {
             int x = e.getX(), y = e.getY();
             x = Math.min(visX + visWidth, Math.max(visX, x));
             y = Math.min(visY + visHeight, Math.max(visY, y));
@@ -421,6 +444,7 @@ public class GMICanvas extends JPanel
         }
     }
 
+    /** planned special display for region growing */
     private boolean regionGrowMode = false;
 
     /** region grow Mode, show region grow selection axis */

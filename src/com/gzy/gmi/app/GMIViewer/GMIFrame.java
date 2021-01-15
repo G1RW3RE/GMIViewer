@@ -438,7 +438,6 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         maskMenuItemDelete.addActionListener(this);
     }
 
-    @SuppressWarnings("SuspiciousNameCombination")
     public void onDataLoaded() {
         scrollBar00.setMinimum(0);
         scrollBar00.setVisibleAmount(Math.max(20, mhdInfo.z / 10));
@@ -452,9 +451,9 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
         // load ctWindow
         ctWindow = new CTWindow(rawData.lowestValue, rawData.highestValue);
         // canvas data init must be done after scrollbars'
-        canvas00.loadImageData(rawData.bottomSlice, mhdInfo.x, mhdInfo.y, ctWindow, GMICanvas.ORIENT_BOTTOM);
-        canvas01.loadImageData(rawData.rightSlice, mhdInfo.y, mhdInfo.z, ctWindow, GMICanvas.ORIENT_RIGHT);
-        canvas10.loadImageData(rawData.frontSlice, mhdInfo.x, mhdInfo.z, ctWindow, GMICanvas.ORIENT_FRONT);
+        canvas00.loadImageData(rawData, mhdInfo, ctWindow, GMICanvas.ORIENT_BOTTOM);
+        canvas01.loadImageData(rawData, mhdInfo, ctWindow, GMICanvas.ORIENT_RIGHT);
+        canvas10.loadImageData(rawData, mhdInfo, ctWindow, GMICanvas.ORIENT_FRONT);
         canvas00.setMaskList(mask3DList);
         canvas01.setMaskList(mask3DList);
         canvas10.setMaskList(mask3DList);
@@ -816,8 +815,7 @@ public class GMIFrame extends JFrame implements MouseListener, MouseMotionListen
                 updateOnMaskChanged();
             }
         }
-
-        // menu bar
+        /* === menu bar === */
         else if(e.getSource() == fileMenuItemOpen) {
             JFileChooser fileChooser = new JFileChooser();
             fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
