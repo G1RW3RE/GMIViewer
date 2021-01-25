@@ -306,12 +306,12 @@ public class GMIThreshDialog extends JDialog implements MouseMotionListener, Mou
         txtWindowSize.setText("" + ctWindow.getWinSize());
         txtWindowLow.setText("" + ctWindow.getWinLow());
         txtWindowHigh.setText("" + ctWindow.getWinHigh());
-        maskPreview();
+        maskChangePreview();
         repaint();
     }
 
     /** update currently displaying mask as preview, undo when quit without submitting */
-    private void maskPreview() {
+    private void maskChangePreview() {
         int[] bottomSlice = rawData.getBottomSlice(z);
         for (int i = 0; i < mask.bottomSlice[z].length; i++) {
             mask.bottomSlice[z][i] = (bottomSlice[i] >= ctWindow.getWinLow() && bottomSlice[i] <= ctWindow.getWinHigh());
@@ -329,25 +329,25 @@ public class GMIThreshDialog extends JDialog implements MouseMotionListener, Mou
     }
 
     /** confirm changes, update whole mask */
-    private void maskConfirmed() {
+    private void maskChangeApply() {
         int[] bottomSlice = new int[dimX * dimY];
         for(int sl = 0; sl < dimZ; sl++) {
+            bottomSlice = rawData.getBottomSlice(bottomSlice, sl);
             for (int i = 0; i < mask.bottomSlice[z].length; i++) {
-                bottomSlice = rawData.getBottomSlice(bottomSlice, sl);
                 mask.bottomSlice[sl][i] = (bottomSlice[i] >= ctWindow.getWinLow() && bottomSlice[i] <= ctWindow.getWinHigh());
             }
         }
         int[] rightSlice = new int[dimY * dimZ];
         for(int sl = 0; sl < dimX; sl++) {
+            rightSlice = rawData.getRightSlice(rightSlice, sl);
             for (int i = 0; i < mask.rightSlice[x].length; i++) {
-                rightSlice = rawData.getRightSlice(rightSlice, sl);
                 mask.rightSlice[sl][i] = (rightSlice[i] >= ctWindow.getWinLow() && rightSlice[i] <= ctWindow.getWinHigh());
             }
         }
         int[] frontSlice = new int[dimX * dimZ];
         for(int sl = 0; sl < dimY; sl++) {
+            frontSlice = rawData.getFrontSlice(frontSlice, sl);
             for (int i = 0; i < mask.frontSlice[y].length; i++) {
-                frontSlice = rawData.getFrontSlice(frontSlice, sl);
                 mask.frontSlice[sl][i] = (frontSlice[i] >= ctWindow.getWinLow() && frontSlice[i] <= ctWindow.getWinHigh());
             }
         }
@@ -356,7 +356,7 @@ public class GMIThreshDialog extends JDialog implements MouseMotionListener, Mou
     @Override
     public void actionPerformed(ActionEvent e) {
         if(e.getSource() == btnSubmit) {
-            maskConfirmed();
+            maskChangeApply();
             confirmed = true;
             this.dispose();
         } else if(e.getSource() == rdbSizePos) {
